@@ -5,8 +5,10 @@ import { useChatStream } from '../useChatStream'
 const SYSTEM_TRANSLATE = '你是一个翻译助手。请把用户输入的内容翻译成中文，只输出译文，不要解释。'
 
 export default function TranslateWindow({ text }: { text: string }) {
-  const { messages, isStreaming, send, reset } = useChatStream()
+  const { messages, isStreaming, send, reset, stop } = useChatStream()
   const [lastText, setLastText] = useState('')
+
+  useEffect(() => () => stop(), [stop])
 
   useEffect(() => {
     if (text.trim() && text !== lastText) {

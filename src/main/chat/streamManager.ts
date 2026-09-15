@@ -22,18 +22,22 @@ export class StreamManager {
   async run(sender: WebContents, req: StreamRequest): Promise<void> {
     this.abortFor(sender)
 
-    const config = getResolvedConfig()
-    if (!config.apiKey) {
-      sender.send(IPC.events.chatError, { message: 'NO_API_KEY' })
-      return
-    }
-
-    const model = resolveModel(config)
     const controller = new AbortController()
     this.active.set(sender.id, controller)
 
     const impl = this.opts.streamTextImpl ?? streamText
     try {
+      const config = getResolvedConfig()
+      if (!config.apiKey) {
+        sender.send(IPC.events.chatError, { message: 'NO_API_KEY' })
+        return
+      }
+      if (!config.modelId) {
+        sender.send(IPC.events.chatError, { message: 'NO_MODEL' })
+        return
+      }
+
+      const model = resolveModel(config)
       const { textStream } = impl({
         model,
         system: req.system,

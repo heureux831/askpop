@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
 
 import { StreamManager } from '../streamManager'
@@ -8,6 +8,10 @@ vi.mock('../../config/resolve', () => ({
   getResolvedConfig: vi.fn(),
   resolveModel: vi.fn()
 }))
+
+beforeEach(() => {
+  vi.resetAllMocks()
+})
 
 const mockSender = () => {
   const sent: Array<[string, unknown]> = []
@@ -59,6 +63,33 @@ describe('StreamManager.run', () => {
 
     expect(sent[0][0]).toBe('chat:error')
     expect((sent[0][1] as { message: string }).message).toBe('boom')
+  })
+
+  it('modelId 为空时发 chat:error（NO_MODEL）且不调用 streamText', async () => {
+    vi.mocked(getResolvedConfig).mockReturnValue({ providerId: 'custom', baseURL: 'b', modelId: '', apiKey: 'k', hotkey: '' })
+    const fakeStreamText = vi.fn()
+    const mgr = new StreamManager({ streamTextImpl: fakeStreamText })
+    const { sender, sent } = mockSender()
+
+    await mgr.run(sender, { messages: [] })
+
+    expect(fakeStreamText).not.toHaveBeenCalled()
+    expect(sent[0][0]).toBe('chat:error')
+    expect((sent[0][1] as { message: string }).message).toBe('NO_MODEL')
+  })
+
+  it('resolveModel 抛错时发 chat:error 而非静默失败', async () => {
+    vi.mocked(getResolvedConfig).mockReturnValue({ providerId: 'custom', baseURL: '', modelId: 'm', apiKey: 'k', hotkey: '' })
+    vi.mocked(resolveModel).mockImplementation(() => {
+      throw new Error('invalid baseURL')
+    })
+    const mgr = new StreamManager({ streamTextImpl: vi.fn() })
+    const { sender, sent } = mockSender()
+
+    await mgr.run(sender, { messages: [] })
+
+    expect(sent[0][0]).toBe('chat:error')
+    expect((sent[0][1] as { message: string }).message).toBe('invalid baseURL')
   })
 
   it('重入时旧流的 finally 不会误删新流的 controller，新流仍可被 abort', async () => {

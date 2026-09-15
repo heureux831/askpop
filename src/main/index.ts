@@ -1,23 +1,18 @@
-import { app, BrowserWindow } from 'electron'
-import { join } from 'path'
-
+import { app, globalShortcut } from 'electron'
+import { getPublicConfig } from './config/resolve'
 import { registerIpcHandlers } from './ipc/handlers'
-
-function createWindow(html: string) {
-  const win = new BrowserWindow({ width: 600, height: 500, show: false })
-  win.on('ready-to-show', () => win.show())
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${html}`)
-  } else {
-    win.loadFile(join(__dirname, `../renderer/${html}`))
-  }
-  return win
-}
+import { createQuickWindow, showQuickAssistant, toggleQuickAssistant } from './windows/quickWindow'
 
 app.whenReady().then(() => {
+  createQuickWindow()
   registerIpcHandlers()
-  createWindow('quick.html')
-  createWindow('settings.html')
+  registerHotkey()
 })
 
+function registerHotkey(): void {
+  const accel = getPublicConfig().hotkey
+  globalShortcut.register(accel, () => toggleQuickAssistant())
+}
+
+app.on('will-quit', () => globalShortcut.unregisterAll())
 app.on('window-all-closed', () => app.quit())

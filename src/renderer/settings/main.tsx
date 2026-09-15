@@ -1,4 +1,6 @@
 import '../assets/main.css'
 import { createRoot } from 'react-dom/client'
 
-createRoot(document.getElementById('root')!).render(<div>settings</div>)
+import SettingsPage from './SettingsPage'
+
+createRoot(document.getElementById('root')!).render(<SettingsPage />)

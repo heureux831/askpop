@@ -1,6 +1,6 @@
 import { CornerDownLeft, FileText, Languages, Lightbulb, MessageSquare } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
-import { useImperativeHandle, useMemo, useState } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
 
 import { Scrollbar } from './ui'
 
@@ -22,7 +22,7 @@ export interface FeatureMenusRef {
 const PROMPT_SUMMARY = '请总结以下内容，用简洁的中文概括要点：'
 const PROMPT_EXPLANATION = '请用通俗易懂的中文解释以下内容：'
 
-const FeatureMenus = ({ ref, text, setRoute, onSendMessage }: Props & { ref?: React.RefObject<FeatureMenusRef | null> }) => {
+const FeatureMenus = forwardRef<FeatureMenusRef, Props>(({ text, setRoute, onSendMessage }, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const features = useMemo(
@@ -66,12 +66,16 @@ const FeatureMenus = ({ ref, text, setRoute, onSendMessage }: Props & { ref?: Re
     [onSendMessage, setRoute, text]
   )
 
-  useImperativeHandle(ref, () => ({
-    nextFeature: () => setSelectedIndex((p) => (p < features.length - 1 ? p + 1 : 0)),
-    prevFeature: () => setSelectedIndex((p) => (p > 0 ? p - 1 : features.length - 1)),
-    useFeature: () => features[selectedIndex].onClick?.(),
-    resetSelectedIndex: () => setSelectedIndex(0)
-  }))
+  useImperativeHandle(
+    ref,
+    () => ({
+      nextFeature: () => setSelectedIndex((p) => (p < features.length - 1 ? p + 1 : 0)),
+      prevFeature: () => setSelectedIndex((p) => (p > 0 ? p - 1 : features.length - 1)),
+      useFeature: () => features[selectedIndex].onClick?.(),
+      resetSelectedIndex: () => setSelectedIndex(0)
+    }),
+    [features, selectedIndex]
+  )
 
   return (
     <Scrollbar className="h-auto shrink-0">
@@ -92,7 +96,7 @@ const FeatureMenus = ({ ref, text, setRoute, onSendMessage }: Props & { ref?: Re
       </div>
     </Scrollbar>
   )
-}
+})
 FeatureMenus.displayName = 'FeatureMenus'
 
 export default FeatureMenus

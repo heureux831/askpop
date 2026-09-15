@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { forwardRef, useRef } from 'react'
 
 import { Input } from './ui'
 
@@ -10,7 +10,7 @@ interface Props {
   handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }
 
-const InputBar = ({ ref, text, placeholder, loading, handleKeyDown, handleChange }: Props & { ref?: React.Ref<HTMLDivElement> }) => {
+const InputBar = forwardRef<HTMLDivElement, Props>(({ text, placeholder, loading, handleKeyDown, handleChange }, ref) => {
   const inputRef = useRef<HTMLInputElement>(null)
   if (!loading) {
     setTimeout(() => inputRef.current?.focus(), 0)
@@ -28,7 +28,7 @@ const InputBar = ({ ref, text, placeholder, loading, handleKeyDown, handleChange
       />
     </div>
   )
-}
+})
 InputBar.displayName = 'InputBar'
 
 export default InputBar

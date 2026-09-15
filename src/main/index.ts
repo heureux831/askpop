@@ -1,6 +1,8 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 
+import { registerIpcHandlers } from './ipc/handlers'
+
 function createWindow(html: string) {
   const win = new BrowserWindow({ width: 600, height: 500, show: false })
   win.on('ready-to-show', () => win.show())
@@ -13,6 +15,7 @@ function createWindow(html: string) {
 }
 
 app.whenReady().then(() => {
+  registerIpcHandlers()
   createWindow('quick.html')
   createWindow('settings.html')
 })

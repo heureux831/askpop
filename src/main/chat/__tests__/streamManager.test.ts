@@ -60,4 +60,38 @@ describe('StreamManager.run', () => {
     expect(sent[0][0]).toBe('chat:error')
     expect((sent[0][1] as { message: string }).message).toBe('boom')
   })
+
+  it('重入时旧流的 finally 不会误删新流的 controller，新流仍可被 abort', async () => {
+    vi.mocked(getResolvedConfig).mockReturnValue({ providerId: 'openai', baseURL: 'b', modelId: 'm', apiKey: 'k', hotkey: '' })
+    const signals: AbortSignal[] = []
+    const fakeStreamText = vi.fn()
+    fakeStreamText.mockImplementation(({ abortSignal }: { abortSignal: AbortSignal }) => {
+      signals.push(abortSignal)
+      return {
+        textStream: (async function* () {
+          await new Promise<void>((_, reject) => {
+            if (abortSignal.aborted) return reject(new Error('Aborted'))
+            abortSignal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true })
+          })
+          yield 'x'
+        })()
+      }
+    })
+    const mgr = new StreamManager({ streamTextImpl: fakeStreamText })
+    const { sender, sent } = mockSender()
+
+    const p1 = mgr.run(sender, { messages: [{ role: 'user', content: 'a' }] })
+    const p2 = mgr.run(sender, { messages: [{ role: 'user', content: 'b' }] })
+
+    // 等第一条流完全收尾（其 finally 已执行，可能误删新流的 controller）
+    await p1
+
+    // 第二条流仍可被 abort（修复前：active 已被旧流 finally 误删，abort 落空）
+    mgr.abortFor(sender)
+    expect(signals[0].aborted).toBe(true)
+    expect(signals[1].aborted).toBe(true)
+
+    await p2
+    expect(sent.filter(([ch]) => ch === 'chat:error')).toHaveLength(0)
+  })
 })

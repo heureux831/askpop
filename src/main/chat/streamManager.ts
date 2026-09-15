@@ -49,7 +49,9 @@ export class StreamManager {
         sender.send(IPC.events.chatError, { message: (err as Error).message })
       }
     } finally {
-      this.active.delete(sender.id)
+      if (this.active.get(sender.id) === controller) {
+        this.active.delete(sender.id)
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { validate, type FormValues } from './validation'
 export default function SettingsPage() {
   const [form, setForm] = useState<FormValues>({ providerId: 'openai', baseURL: '', modelId: '', apiKey: '' })
   const [hotkey, setHotkey] = useState('CommandOrControl+Shift+Space')
+  const [hasApiKey, setHasApiKey] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({})
 
@@ -14,13 +15,14 @@ export default function SettingsPage() {
     void window.api.config.get().then((cfg) => {
       setForm((f) => ({ ...f, providerId: cfg.providerId, baseURL: cfg.baseURL, modelId: cfg.modelId, apiKey: '' }))
       setHotkey(cfg.hotkey)
+      setHasApiKey(cfg.hasApiKey)
     })
   }, [])
 
   const provider = PROVIDERS.find((p) => p.id === form.providerId) ?? PROVIDERS[0]
 
   const save = async () => {
-    const errs = validate(form)
+    const errs = validate(form, hasApiKey)
     setErrors(errs)
     if (Object.keys(errs).length > 0) return
     await window.api.config.set({

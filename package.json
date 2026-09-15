@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "description": "A lightweight floating quick-assistant for macOS",
   "main": "./out/main/index.js",
-  "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

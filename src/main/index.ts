@@ -1,7 +1,7 @@
 import { app, globalShortcut } from 'electron'
 import { getPublicConfig } from './config/resolve'
 import { registerIpcHandlers } from './ipc/handlers'
-import { createQuickWindow, showQuickAssistant, toggleQuickAssistant } from './windows/quickWindow'
+import { createQuickWindow, toggleQuickAssistant } from './windows/quickWindow'
 
 app.whenReady().then(() => {
   createQuickWindow()

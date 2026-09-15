@@ -92,9 +92,14 @@ export function showQuickAssistant(): void {
 }
 
 export function hideQuickAssistant(): void {
-  getQuickWindow()?.hide()
-  // macOS 隐藏后把焦点还给前一个应用
-  app.hide()
+  const w = getQuickWindow()
+  w?.hide()
+  const anyOtherVisible = BrowserWindow.getAllWindows().some(
+    (win) => win !== w && !win.isDestroyed() && win.isVisible()
+  )
+  if (!anyOtherVisible) {
+    app.hide()
+  }
 }
 
 export function toggleQuickAssistant(): void {

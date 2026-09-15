@@ -60,4 +60,13 @@ describe('useChatStream', () => {
     expect(result.current.error).toBe('NO_API_KEY')
     expect(result.current.isStreaming).toBe(false)
   })
+
+  it('stop 调用 abort 并清空 isStreaming', () => {
+    const { api } = mockApi()
+    const { result } = renderHook(() => useChatStream())
+    act(() => result.current.send('hi'))
+    act(() => result.current.stop())
+    expect(api.chat.abort).toHaveBeenCalled()
+    expect(result.current.isStreaming).toBe(false)
+  })
 })

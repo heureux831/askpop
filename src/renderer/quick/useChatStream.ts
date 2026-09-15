@@ -49,7 +49,10 @@ export function useChatStream() {
     })
   }, [])
 
-  const stop = useCallback(() => window.api.chat.abort(), [])
+  const stop = useCallback(() => {
+    window.api.chat.abort()
+    setIsStreaming(false)
+  }, [])
   const reset = useCallback(() => {
     setMessages([])
     setIsStreaming(false)

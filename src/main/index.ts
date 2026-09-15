@@ -1,7 +1,8 @@
 import { app, globalShortcut } from 'electron'
 import { getPublicConfig } from './config/resolve'
+import { registerHotkey } from './hotkey'
 import { registerIpcHandlers } from './ipc/handlers'
-import { createQuickWindow, toggleQuickAssistant } from './windows/quickWindow'
+import { createQuickWindow } from './windows/quickWindow'
 import { openSettingsWindow } from './windows/settingsWindow'
 
 app.whenReady().then(() => {
@@ -15,11 +16,6 @@ function maybePromptSetup(): void {
   if (!getPublicConfig().hasApiKey) {
     openSettingsWindow()
   }
-}
-
-function registerHotkey(): void {
-  const accel = getPublicConfig().hotkey
-  globalShortcut.register(accel, () => toggleQuickAssistant())
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll())

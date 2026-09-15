@@ -32,6 +32,14 @@ vi.mock('../../windows/quickWindow', () => ({
   setPinQuickAssistant: vi.fn()
 }))
 
+vi.mock('../../windows/settingsWindow', () => ({
+  openSettingsWindow: vi.fn()
+}))
+
+vi.mock('../../hotkey', () => ({
+  registerHotkey: vi.fn()
+}))
+
 import { ipcMain } from 'electron'
 import { IPC } from '@shared/ipc'
 import type { PublicConfig } from '@shared/config'

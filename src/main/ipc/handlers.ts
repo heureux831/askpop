@@ -5,6 +5,7 @@ import { streamManager } from '../chat/streamManager'
 import { getPublicConfig } from '../config/resolve'
 import { setApiKey } from '../config/secretStore'
 import { loadConfig, saveConfig } from '../config/store'
+import { registerHotkey } from '../hotkey'
 import { hideQuickAssistant, setPinQuickAssistant } from '../windows/quickWindow'
 import { openSettingsWindow } from '../windows/settingsWindow'
 
@@ -13,6 +14,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.channels.configSet, (_e, cfg: Partial<Parameters<typeof saveConfig>[0]>) => {
     saveConfig({ ...loadConfig(), ...cfg })
+    registerHotkey()
   })
 
   ipcMain.handle(IPC.channels.configSetKey, (_e, { apiKey }: { apiKey: string }) => {

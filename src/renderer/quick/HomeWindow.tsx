@@ -114,7 +114,11 @@ export default function HomeWindow() {
       return (
         <>
           <MessageList messages={messages} isStreaming={isStreaming} />
-          {error && <div className="rounded border border-error-border bg-error-subtle px-3 py-2 text-[13px]">{error}</div>}
+          {error && (
+            <div className="rounded border border-error-border bg-error-subtle px-3 py-2 text-[13px]">
+              {error === 'NO_API_KEY' ? '尚未配置 API Key，请打开设置填写。' : error}
+            </div>
+          )}
         </>
       )
     }

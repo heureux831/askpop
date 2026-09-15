@@ -38,6 +38,9 @@ const api = {
       ipcRenderer.on(IPC.events.quickShown, l)
       return () => ipcRenderer.removeListener(IPC.events.quickShown, l)
     }
+  },
+  settings: {
+    open: (): void => ipcRenderer.send(IPC.channels.settingsOpen)
   }
 }
 

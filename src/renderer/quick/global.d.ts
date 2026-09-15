@@ -20,6 +20,9 @@ declare global {
         setPin(pinned: boolean): void
         onShown(cb: () => void): () => void
       }
+      settings: {
+        open(): void
+      }
     }
   }
 }

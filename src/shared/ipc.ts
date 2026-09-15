@@ -6,7 +6,8 @@ export const IPC = {
     chatStream: 'chat:stream',
     chatAbort: 'chat:abort',
     quickHide: 'quick:hide',
-    quickSetPin: 'quick:setPin'
+    quickSetPin: 'quick:setPin',
+    settingsOpen: 'settings:open'
   },
   events: {
     chatChunk: 'chat:chunk',

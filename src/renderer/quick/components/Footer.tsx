@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleArrowLeft, Copy, Loader2, Pin } from 'lucide-react'
+import { ArrowLeft, CircleArrowLeft, Copy, Loader2, Pin, Settings } from 'lucide-react'
 import type { ButtonHTMLAttributes, FC } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 
@@ -41,11 +41,18 @@ const Footer: FC<Props> = ({ route, canUseBackspace, loading, clearClipboard, on
           </FooterAction>
         )}
       </div>
-      <button type="button" onClick={() => setIsPinned(!isPinned)} className="mr-1 flex items-center" aria-pressed={isPinned} aria-label="固定">
-        <Tooltip content="固定">
-          <Pin size={14} className={isPinned ? 'rotate-[40deg] text-primary transition-transform' : 'transition-transform'} />
-        </Tooltip>
-      </button>
+      <div className="flex items-center">
+        <button type="button" onClick={() => window.api.settings.open()} className="mr-1 flex items-center" aria-label="设置">
+          <Tooltip content="设置">
+            <Settings size={14} />
+          </Tooltip>
+        </button>
+        <button type="button" onClick={() => setIsPinned(!isPinned)} className="mr-1 flex items-center" aria-pressed={isPinned} aria-label="固定">
+          <Tooltip content="固定">
+            <Pin size={14} className={isPinned ? 'rotate-[40deg] text-primary transition-transform' : 'transition-transform'} />
+          </Tooltip>
+        </button>
+      </div>
     </div>
   )
 }

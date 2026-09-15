@@ -6,6 +6,7 @@ import { getPublicConfig } from '../config/resolve'
 import { setApiKey } from '../config/secretStore'
 import { loadConfig, saveConfig } from '../config/store'
 import { hideQuickAssistant, setPinQuickAssistant } from '../windows/quickWindow'
+import { openSettingsWindow } from '../windows/settingsWindow'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.channels.configGet, () => getPublicConfig())
@@ -28,4 +29,5 @@ export function registerIpcHandlers(): void {
 
   ipcMain.on(IPC.channels.quickHide, () => hideQuickAssistant())
   ipcMain.on(IPC.channels.quickSetPin, (_e, { pinned }: { pinned: boolean }) => setPinQuickAssistant(pinned))
+  ipcMain.on(IPC.channels.settingsOpen, () => openSettingsWindow())
 }

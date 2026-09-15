@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 
 import { PROVIDERS, type ProviderId } from '@shared/config'
 
+import { formatAccelerator } from './accelerator'
 import { validate, type FormValues } from './validation'
 
 export default function SettingsPage() {
   const [form, setForm] = useState<FormValues>({ providerId: 'openai', baseURL: '', modelId: '', apiKey: '' })
   const [hotkey, setHotkey] = useState('CommandOrControl+Shift+Space')
   const [hasApiKey, setHasApiKey] = useState(false)
+  const [capturing, setCapturing] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({})
 
@@ -44,7 +46,11 @@ export default function SettingsPage() {
           供应商
           <select
             value={form.providerId}
-            onChange={(e) => setForm((f) => ({ ...f, providerId: e.target.value as ProviderId }))}
+            onChange={(e) => {
+              const providerId = e.target.value as ProviderId
+              const next = PROVIDERS.find((p) => p.id === providerId)
+              setForm((f) => ({ ...f, providerId, modelId: next?.defaultModel ?? '' }))
+            }}
             className="rounded border border-input bg-background px-3 py-2">
             {PROVIDERS.map((p) => (
               <option key={p.id} value={p.id}>
@@ -68,13 +74,26 @@ export default function SettingsPage() {
         )}
 
         <label className="flex flex-col gap-1 text-sm">
-          模型 ID
-          <input
-            value={form.modelId}
-            onChange={(e) => setForm((f) => ({ ...f, modelId: e.target.value }))}
-            placeholder={provider.defaultModel || '手动输入 model ID'}
-            className="rounded border border-input bg-background px-3 py-2"
-          />
+          模型
+          <select
+            value={provider.models.includes(form.modelId) ? form.modelId : '__custom__'}
+            onChange={(e) => setForm((f) => ({ ...f, modelId: e.target.value === '__custom__' ? '' : e.target.value }))}
+            className="rounded border border-input bg-background px-3 py-2">
+            {provider.models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+            <option value="__custom__">自定义…</option>
+          </select>
+          {!provider.models.includes(form.modelId) && (
+            <input
+              value={form.modelId}
+              onChange={(e) => setForm((f) => ({ ...f, modelId: e.target.value }))}
+              placeholder="手动输入 model ID"
+              className="mt-1 rounded border border-input bg-background px-3 py-2"
+            />
+          )}
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
@@ -91,7 +110,26 @@ export default function SettingsPage() {
 
         <label className="flex flex-col gap-1 text-sm">
           全局快捷键
-          <input value={hotkey} onChange={(e) => setHotkey(e.target.value)} className="rounded border border-input bg-background px-3 py-2" />
+          <button
+            type="button"
+            onClick={() => setCapturing(true)}
+            onBlur={() => setCapturing(false)}
+            onKeyDown={(e) => {
+              if (!capturing) return
+              e.preventDefault()
+              if (e.key === 'Escape') {
+                setCapturing(false)
+                return
+              }
+              const accel = formatAccelerator(e)
+              if (accel) {
+                setHotkey(accel)
+                setCapturing(false)
+              }
+            }}
+            className={`rounded border border-input bg-background px-3 py-2 text-left ${capturing ? 'text-primary' : ''}`}>
+            {capturing ? '请按下组合键…' : hotkey || '点击设置快捷键'}
+          </button>
         </label>
 
         <button type="button" onClick={save} className="rounded bg-primary px-4 py-2 text-primary-foreground">

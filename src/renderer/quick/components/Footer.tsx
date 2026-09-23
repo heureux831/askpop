@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleArrowLeft, Copy, Loader2, Pin, Settings } from 'lucide-react'
+import { ArrowLeft, CircleArrowLeft, Copy, Loader2, Pin } from 'lucide-react'
 import type { ButtonHTMLAttributes, FC } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 
@@ -6,6 +6,7 @@ import { Tooltip } from './ui'
 
 interface Props {
   route: string
+  modelName?: string
   canUseBackspace?: boolean
   loading?: boolean
   isPinned: boolean
@@ -15,14 +16,14 @@ interface Props {
   onCopy?: () => void
 }
 
-const Footer: FC<Props> = ({ route, canUseBackspace, loading, clearClipboard, onEsc, isPinned, setIsPinned, onCopy }) => {
+const Footer: FC<Props> = ({ route, modelName, canUseBackspace, loading, clearClipboard, onEsc, isPinned, setIsPinned, onCopy }) => {
   useHotkeys('esc', () => onEsc())
   useHotkeys('c', () => { if (!loading && onCopy) onCopy() })
 
   const escLabel = loading ? 'Esc 暂停' : route === 'home' ? 'Esc 关闭' : 'Esc 返回'
 
   return (
-    <div className="flex flex-row justify-between py-1.5 text-xs text-muted-foreground">
+    <div className="quick-footer">
       <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
         <FooterAction onClick={onEsc}>
           {loading ? <Loader2 size={12} className="animate-spin text-error" /> : <CircleArrowLeft size={14} />}
@@ -42,11 +43,7 @@ const Footer: FC<Props> = ({ route, canUseBackspace, loading, clearClipboard, on
         )}
       </div>
       <div className="flex items-center">
-        <button type="button" onClick={() => window.api.settings.open()} className="mr-1 flex items-center" aria-label="设置">
-          <Tooltip content="设置">
-            <Settings size={14} />
-          </Tooltip>
-        </button>
+        <span className="footer-model" title={modelName}>{modelName ?? '未选择模型'}</span>
         <button type="button" onClick={() => setIsPinned(!isPinned)} className="mr-1 flex items-center" aria-pressed={isPinned} aria-label="固定">
           <Tooltip content="固定">
             <Pin size={14} className={isPinned ? 'rotate-[40deg] text-primary transition-transform' : 'transition-transform'} />

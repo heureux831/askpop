@@ -5,16 +5,47 @@ import { IPC } from '@shared/ipc'
 
 let win: BrowserWindow | null = null
 let isPinned = false
+let dragOrigin: { window: number[]; pointer: { x: number; y: number } } | null = null
+let dragTimeout: ReturnType<typeof setTimeout> | null = null
+
+function isPoint(value: unknown): value is { x: number; y: number } {
+  return !!value && typeof value === 'object' &&
+    Number.isFinite((value as { x: number }).x) && Number.isFinite((value as { y: number }).y)
+}
+
+export function endQuickDrag(): void {
+  dragOrigin = null
+  if (dragTimeout) clearTimeout(dragTimeout)
+  dragTimeout = null
+}
+
+export function beginQuickDrag(point: unknown): void {
+  endQuickDrag()
+  const window = getQuickWindow()
+  if (!window?.isVisible() || !isPoint(point)) return
+  dragOrigin = { window: window.getPosition(), pointer: point }
+  dragTimeout = setTimeout(endQuickDrag, 30_000)
+}
+
+export function moveQuickDrag(point: unknown): void {
+  const window = getQuickWindow()
+  if (!dragOrigin || !window?.isVisible() || !isPoint(point)) return
+  window.setPosition(
+    Math.round(dragOrigin.window[0] + point.x - dragOrigin.pointer.x),
+    Math.round(dragOrigin.window[1] + point.y - dragOrigin.pointer.y), false
+  )
+}
 
 export function createQuickWindow(): BrowserWindow {
   win = new BrowserWindow({
-    width: 550,
-    height: 400,
-    minWidth: 350,
+    width: 600,
+    height: 480,
+    minWidth: 440,
     minHeight: 380,
     maxWidth: 1024,
     maxHeight: 768,
     frame: false,
+    movable: true,
     show: false,
     alwaysOnTop: true,
     useContentSize: true,
@@ -40,8 +71,9 @@ export function createQuickWindow(): BrowserWindow {
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
   win.on('blur', () => {
-    if (!isPinned) hideQuickAssistant()
+    if (!isPinned && !dragOrigin) hideQuickAssistant()
   })
+  win.on('closed', () => endQuickDrag())
   win.on('show', () => {
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC.events.quickShown, undefined)
@@ -89,9 +121,11 @@ export function showQuickAssistant(): void {
   }
   w.show()
   w.focus()
+  w.webContents.send(IPC.events.quickShown, undefined)
 }
 
 export function hideQuickAssistant(): void {
+  endQuickDrag()
   const w = getQuickWindow()
   w?.hide()
   const anyOtherVisible = BrowserWindow.getAllWindows().some(

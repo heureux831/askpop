@@ -1,21 +1,29 @@
 {
   "name": "quick-assistant-app",
-  "version": "0.1.0",
-  "description": "A lightweight floating quick-assistant for macOS",
+  "version": "0.2.0",
+  "description": "AskPop — a keyboard-first AI assistant for macOS, with custom models and prompts",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "package": "pnpm build && electron-builder --mac --dir && pnpm test:package",
+    "dist": "pnpm build && electron-builder --mac dmg && pnpm test:package",
+    "test:e2e": "pnpm build && playwright test",
+    "test:package": "node scripts/check-package.cjs"
   },
   "dependencies": {
-    "ai": "^4.0.0",
+    "@ai-sdk/anthropic": "^1.0.0",
     "@ai-sdk/openai": "^1.0.0",
-    "@ai-sdk/anthropic": "^1.0.0"
+    "ai": "^4.0.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^22.0.0",
@@ -24,6 +32,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.0",
     "electron": "^33.0.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "jsdom": "^25.0.0",
     "lucide-react": "^0.451.0",
@@ -37,6 +46,52 @@
     "vitest": "^2.1.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron", "esbuild"]
-  }
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  },
+  "build": {
+    "appId": "com.qiyoung.quickassistant",
+    "productName": "AskPop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ],
+      "identity": null
+    },
+    "dmg": {
+      "title": "AskPop",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  },
+  "author": "heureux831",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heureux831/askpop.git"
+  },
+  "homepage": "https://github.com/heureux831/askpop#readme",
+  "bugs": {
+    "url": "https://github.com/heureux831/askpop/issues"
+  },
+  "packageManager": "pnpm@10.22.0"
 }

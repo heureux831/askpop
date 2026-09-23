@@ -10,9 +10,13 @@ export function openSettingsWindow(): void {
     return
   }
   win = new BrowserWindow({
-    width: 640,
-    height: 560,
-    title: '快捷助手设置',
+    width: 1080,
+    height: 760,
+    minWidth: 900,
+    minHeight: 620,
+    title: 'AskPop · 唤问设置',
+    titleBarStyle: 'hiddenInset',
+    backgroundColor: '#FAFBFD',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

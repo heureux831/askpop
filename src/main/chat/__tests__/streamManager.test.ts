@@ -125,4 +125,25 @@ describe('StreamManager.run', () => {
     await p2
     expect(sent.filter(([ch]) => ch === 'chat:error')).toHaveLength(0)
   })
+  it('SDK 通过 onError 报告 HTTP 错误时展示错误且不发送成功事件', async () => {
+    vi.mocked(getResolvedConfig).mockReturnValue({ providerId: 'custom', baseURL: 'b', modelId: 'm', apiKey: 'k', hotkey: '' })
+    const impl = vi.fn(({ onError }) => ({
+      textStream: (async function* () {
+        onError({ error: new Error('401 Unauthorized') })
+        yield* []
+      })()
+    }))
+    const { sender, sent } = mockSender()
+    await new StreamManager({ streamTextImpl: impl as any }).run(sender, { requestId: 'r1', messages: [] })
+    expect(sent).toEqual([['chat:error', { message: '401 Unauthorized', requestId: 'r1' }]])
+  })
+
+  it('服务错误回显 API Key 时不把密钥发送到渲染进程', async () => {
+    vi.mocked(getResolvedConfig).mockReturnValue({ providerId: 'custom', baseURL: 'b', modelId: 'm', apiKey: 'secret-test-key', hotkey: '' })
+    const impl = vi.fn(() => { throw new Error('Invalid key: secret-test-key') })
+    const { sender, sent } = mockSender()
+    await new StreamManager({ streamTextImpl: impl }).run(sender, { requestId: 'r1', messages: [] })
+    expect(sent).toEqual([['chat:error', { message: 'Invalid key: [已隐藏]', requestId: 'r1' }]])
+  })
+
 })

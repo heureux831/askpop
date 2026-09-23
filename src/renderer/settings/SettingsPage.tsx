@@ -1,141 +1,59 @@
 import { useEffect, useState } from 'react'
+import { Boxes, ChevronRight, Plus, Search, Settings2, Sparkles, Users, X } from 'lucide-react'
+import { PROVIDERS, type PublicConfig } from '@shared/config'
+import AssistantAvatar from '../shared/AssistantAvatar'
+import { AssistantEditor, GeneralEditor, ModelEditor } from './Editors'
 
-import { PROVIDERS, type ProviderId } from '@shared/config'
-
-import { formatAccelerator } from './accelerator'
-import { validate, type FormValues } from './validation'
-
+type Section = 'assistants' | 'models' | 'general'
 export default function SettingsPage() {
-  const [form, setForm] = useState<FormValues>({ providerId: 'openai', baseURL: '', modelId: '', apiKey: '' })
-  const [hotkey, setHotkey] = useState('CommandOrControl+Shift+Space')
-  const [hasApiKey, setHasApiKey] = useState(false)
-  const [capturing, setCapturing] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({})
-
-  useEffect(() => {
-    void window.api.config.get().then((cfg) => {
-      setForm((f) => ({ ...f, providerId: cfg.providerId, baseURL: cfg.baseURL, modelId: cfg.modelId, apiKey: '' }))
-      setHotkey(cfg.hotkey)
-      setHasApiKey(cfg.hasApiKey)
-    })
-  }, [])
-
-  const provider = PROVIDERS.find((p) => p.id === form.providerId) ?? PROVIDERS[0]
-
-  const save = async () => {
-    const errs = validate(form, hasApiKey)
-    setErrors(errs)
-    if (Object.keys(errs).length > 0) return
-    await window.api.config.set({
-      providerId: form.providerId,
-      baseURL: form.providerId === 'custom' ? form.baseURL : '',
-      modelId: form.modelId,
-      hotkey
-    })
-    if (form.apiKey.trim()) await window.api.config.setKey(form.apiKey.trim())
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  const [config, setConfig] = useState<PublicConfig | null>(null)
+  const [section, setSection] = useState<Section>('assistants'), [selected, setSelected] = useState('')
+  const [search, setSearch] = useState(''), [dirty, setDirty] = useState(false), [error, setError] = useState('')
+  const [pending, setPending] = useState<(() => void) | null>(null), [deleting, setDeleting] = useState(false), [busy, setBusy] = useState(false)
+  useEffect(() => { void window.api.config.get().then((cfg) => { setConfig(cfg); setSection(cfg.hasApiKey ? 'assistants' : 'models'); setSelected(cfg.hasApiKey ? cfg.activeAssistantId ?? '' : cfg.models?.[0]?.id ?? '') }).catch((error) => setError(String(error))) }, [])
+  useEffect(() => window.api.config.onChanged(setConfig), [])
+  const navigate = (action: () => void) => { if (dirty) setPending(() => action); else action() }
+  const choose = (id: string) => navigate(() => { setSelected(id); setDirty(false); setError('') })
+  const changeSection = (next: Section) => navigate(() => { setSection(next); setSelected(next === 'assistants' ? config?.activeAssistantId ?? '' : config?.models?.[0]?.id ?? ''); setSearch(''); setDirty(false); setError('') })
+  const models = config?.models ?? [], assistants = config?.assistants ?? []
+  const assistant = assistants.find((a) => a.id === selected), model = models.find((m) => m.id === selected)
+  const onSaved = (cfg: PublicConfig, id?: string) => { setConfig(cfg); setDirty(false); if (id) setSelected(id) }
+  const remove = async () => {
+    setBusy(true)
+    try {
+      const cfg = section === 'models' ? await window.api.models.delete(selected) : await window.api.assistants.delete(selected)
+      setConfig(cfg); setSelected(section === 'models' ? cfg.models?.[0]?.id ?? '' : cfg.assistants?.[0]?.id ?? ''); setDirty(false); setDeleting(false); setError('')
+    } catch (error) { setError((error as Error).message); setDeleting(false) } finally { setBusy(false) }
   }
-
-  return (
-    <div className="p-6">
-      <h1 className="mb-4 text-lg font-semibold">快捷助手设置</h1>
-      <div className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
-          供应商
-          <select
-            value={form.providerId}
-            onChange={(e) => {
-              const providerId = e.target.value as ProviderId
-              const next = PROVIDERS.find((p) => p.id === providerId)
-              setForm((f) => ({ ...f, providerId, modelId: next?.defaultModel ?? '' }))
-            }}
-            className="rounded border border-input bg-background px-3 py-2">
-            {PROVIDERS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {form.providerId === 'custom' && (
-          <label className="flex flex-col gap-1 text-sm">
-            Base URL
-            <input
-              value={form.baseURL}
-              onChange={(e) => setForm((f) => ({ ...f, baseURL: e.target.value }))}
-              placeholder="https://api.example.com/v1"
-              className="rounded border border-input bg-background px-3 py-2"
-            />
-            {errors.baseURL && <span className="text-xs text-error">{errors.baseURL}</span>}
-          </label>
-        )}
-
-        <label className="flex flex-col gap-1 text-sm">
-          模型
-          <select
-            value={provider.models.includes(form.modelId) ? form.modelId : '__custom__'}
-            onChange={(e) => setForm((f) => ({ ...f, modelId: e.target.value === '__custom__' ? '' : e.target.value }))}
-            className="rounded border border-input bg-background px-3 py-2">
-            {provider.models.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-            <option value="__custom__">自定义…</option>
-          </select>
-          {!provider.models.includes(form.modelId) && (
-            <input
-              value={form.modelId}
-              onChange={(e) => setForm((f) => ({ ...f, modelId: e.target.value }))}
-              placeholder="手动输入 model ID"
-              className="mt-1 rounded border border-input bg-background px-3 py-2"
-            />
-          )}
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          API Key
-          <input
-            type="password"
-            value={form.apiKey}
-            onChange={(e) => setForm((f) => ({ ...f, apiKey: e.target.value }))}
-            placeholder="留空表示不修改"
-            className="rounded border border-input bg-background px-3 py-2"
-          />
-          {errors.apiKey && <span className="text-xs text-error">{errors.apiKey}</span>}
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          全局快捷键
-          <button
-            type="button"
-            onClick={() => setCapturing(true)}
-            onBlur={() => setCapturing(false)}
-            onKeyDown={(e) => {
-              if (!capturing) return
-              e.preventDefault()
-              if (e.key === 'Escape') {
-                setCapturing(false)
-                return
-              }
-              const accel = formatAccelerator(e)
-              if (accel) {
-                setHotkey(accel)
-                setCapturing(false)
-              }
-            }}
-            className={`rounded border border-input bg-background px-3 py-2 text-left ${capturing ? 'text-primary' : ''}`}>
-            {capturing ? '请按下组合键…' : hotkey || '点击设置快捷键'}
-          </button>
-        </label>
-
-        <button type="button" onClick={save} className="rounded bg-primary px-4 py-2 text-primary-foreground">
-          {saved ? '已保存' : '保存'}
-        </button>
-      </div>
+  const items = (section === 'models' ? models : assistants).filter((item) => `${item.name} ${'modelId' in item ? item.modelId : item.systemPrompt}`.toLowerCase().includes(search.toLowerCase()))
+  return <div className="settings-shell">
+    <aside className="settings-sidebar">
+      <div className="sidebar-traffic-space" />
+      <div className="workspace-brand"><span className="brand-symbol"><Sparkles size={19} /></span><div>唤问<small>你的随身工作台</small></div></div>
+      <nav aria-label="设置导航">{([{ id: 'assistants', label: '助手管理', Icon: Users }, { id: 'models', label: '模型管理', Icon: Boxes }, { id: 'general', label: '通用设置', Icon: Settings2 }] as const).map(({ id, label, Icon }) => <button key={id} className={section === id ? 'nav-active' : ''} onClick={() => changeSection(id)}><Icon size={17} /><span>{label}</span>{id !== 'general' && <small>{id === 'models' ? models.length : assistants.length}</small>}</button>)}</nav>
+      <div className="sidebar-note"><span className="local-dot" /> 配置保存在本机<small>随时唤起，专注当下。</small></div>
+    </aside>
+    <div className="settings-main">
+      <header className="settings-topbar"><span>设置</span><ChevronRight size={13} /><strong>{section === 'models' ? '模型管理' : section === 'assistants' ? '助手管理' : '通用设置'}</strong>{dirty && <span className="unsaved-dot">未保存</span>}</header>
+      {error && <div className="workspace-error" role="alert">{error}<button aria-label="关闭错误" onClick={() => setError('')}><X size={14} /></button></div>}
+      {!config ? <div className="empty-state">正在读取配置…</div> : section === 'general' ? <GeneralEditor key="general" config={config} onDirty={() => setDirty(true)} onSaved={onSaved} /> : <div className="workspace-columns">
+        <section className="entity-list">
+          <div className="entity-list-heading"><h1>{section === 'models' ? '我的模型' : '我的助手'}</h1><button className="add-button" aria-label={section === 'models' ? '添加模型' : '创建助手'} onClick={() => choose('new')}><Plus size={17} /></button></div>
+          <div className="search-field"><Search size={14} /><input aria-label={section === 'models' ? '搜索模型' : '搜索助手'} value={search} onChange={(e) => setSearch(e.target.value)} placeholder={section === 'models' ? '搜索模型…' : '搜索助手…'} /></div>
+          <div className="entity-list-scroll">{items.map((item) => <button className={`entity-row ${selected === item.id ? 'entity-selected' : ''}`} key={item.id} onClick={() => choose(item.id)}>
+            {'icon' in item ? <AssistantAvatar icon={item.icon} /> : <span className={`provider-avatar provider-${item.providerId}`}>{item.providerId === 'custom' ? <Boxes size={19} /> : PROVIDERS.find((p) => p.id === item.providerId)?.label[0]}</span>}
+            <span className="entity-text"><strong>{item.name}</strong><small>{'modelId' in item ? item.modelId : models.find((m) => m.id === item.modelConfigId)?.name ?? '未选择模型'}</small></span>
+            {'hasApiKey' in item ? <span className={`entity-dot ${item.hasApiKey ? 'ready' : ''}`} title={item.hasApiKey ? '已配置 Key' : '待配置 Key'} /> : config.activeAssistantId === item.id && <span className="current-badge">当前</span>}
+          </button>)}{items.length === 0 && <p className="list-empty">{search ? '没有匹配的结果' : section === 'models' ? '还没有模型，点击 + 添加。' : '还没有助手，点击 + 创建。'}</p>}</div>
+          <div className="list-footnote">{section === 'models' ? '一个连接，可供多个助手使用。' : '不同任务，不同的专属助手。'}</div>
+        </section>
+        <section className="entity-detail">{selected === 'new' || (section === 'models' ? model : assistant)
+          ? section === 'models'
+            ? <ModelEditor key={`model-${selected}`} model={model} onDirty={() => setDirty(true)} onSaved={onSaved} onDelete={() => setDeleting(true)} />
+            : <AssistantEditor key={`assistant-${selected}`} assistant={assistant} models={models} onDirty={() => setDirty(true)} onSaved={onSaved} onDelete={() => setDeleting(true)} />
+          : <div className="empty-state"><Sparkles size={28} /><h2>{section === 'models' ? '连接你的第一个模型' : '每项工作，都有合适的助手'}</h2><p>{section === 'models' ? '填入 API 配置，让助手开始工作。' : '选择一个模型，再告诉它应该怎样帮助你。'}</p><button className="primary-button" onClick={() => choose('new')}>{section === 'models' ? '添加模型' : '创建助手'}</button></div>}</section>
+      </div>}
     </div>
-  )
+    {(pending || deleting) && <div className="modal-backdrop"><div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><h2 id="confirm-title">{deleting ? `删除${section === 'models' ? '模型' : '助手'}？` : '有尚未保存的更改'}</h2><p>{deleting ? `“${model?.name ?? assistant?.name}”将从列表中移除。` : '继续切换会放弃本次编辑。'}</p><div><button className="secondary-button" autoFocus onClick={() => { setPending(null); setDeleting(false) }}>返回编辑</button><button className={deleting ? 'danger-button' : 'primary-button'} disabled={busy} onClick={() => { if (deleting) void remove(); else { pending?.(); setPending(null) } }}>{deleting ? '确认删除' : '放弃更改'}</button></div></div></div>}
+  </div>
 }

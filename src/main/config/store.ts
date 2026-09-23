@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { existsSync, readFileSync, writeFileSync, renameSync, copyFileSync, mkdirSync } from 'fs'
+import { join, dirname } from 'path'
 import { app } from 'electron'
 
 import { DEFAULT_CONFIG, type StoredConfig } from '@shared/config'
@@ -27,5 +27,12 @@ export function loadConfig(): StoredConfig {
 }
 
 export function saveConfig(cfg: StoredConfig): void {
-  writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf8')
+  const path = getConfigPath()
+  mkdirSync(dirname(path), { recursive: true })
+  if (cfg.models && existsSync(path) && !existsSync(`${path}.v1.bak`)) {
+    const previous = JSON.parse(readFileSync(path, 'utf8'))
+    if (!previous.models) copyFileSync(path, `${path}.v1.bak`)
+  }
+  writeFileSync(`${path}.tmp`, JSON.stringify(cfg, null, 2), { encoding: 'utf8', mode: 0o600 })
+  renameSync(`${path}.tmp`, path)
 }

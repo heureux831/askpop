@@ -23,7 +23,7 @@ describe('config store', () => {
   it('保存后能读回，并写入磁盘 JSON', () => {
     const cfg: StoredConfig = { providerId: 'anthropic', baseURL: '', modelId: 'claude-3-5-sonnet-20241022', hotkey: 'Cmd+Space' }
     saveConfig(cfg)
-    expect(loadConfig()).toEqual(cfg)
+    expect(loadConfig()).toEqual({ ...cfg, theme: 'system' })
     const raw = JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8'))
     expect(raw.providerId).toBe('anthropic')
   })

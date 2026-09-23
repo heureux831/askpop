@@ -7,8 +7,8 @@ export function useClipboard(enabled: boolean) {
   const readClipboard = useCallback(async () => {
     if (!enabled) return
     try {
-      const text = await navigator.clipboard.readText()
-      if (text && text !== lastRef.current) {
+      const text = await window.api.clipboard.readText()
+      if (text !== lastRef.current) {
         lastRef.current = text
         setClipboardText(text.trim())
       }

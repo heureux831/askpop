@@ -1,3 +1,5 @@
+export type Theme = 'system' | 'light' | 'dark'
+
 export type ProviderId = 'openai' | 'anthropic' | 'deepseek' | 'custom'
 
 export interface ProviderDef {
@@ -33,32 +35,62 @@ export const PROVIDERS: ProviderDef[] = [
   { id: 'custom', label: 'Custom（OpenAI 兼容）', defaultBaseURL: '', defaultModel: '', models: [] }
 ]
 
+export interface ModelConfig {
+  id: string
+  name: string
+  providerId: ProviderId
+  baseURL: string
+  modelId: string
+}
+export interface PublicModel extends ModelConfig { hasApiKey: boolean }
+export interface AssistantConfig {
+  id: string
+  name: string
+  modelConfigId: string
+  systemPrompt: string
+  icon: 'spark' | 'code' | 'pen' | 'languages'
+}
+export type ModelInput = Omit<ModelConfig, 'id'> & { id?: string; apiKey?: string }
+export type AssistantInput = Omit<AssistantConfig, 'id'> & { id?: string }
+
 export interface StoredConfig {
+  models?: ModelConfig[]
+  assistants?: AssistantConfig[]
+  activeAssistantId?: string
   providerId: ProviderId
   baseURL: string
   modelId: string
   hotkey: string
+  theme?: Theme
 }
 
 export const DEFAULT_CONFIG: StoredConfig = {
   providerId: 'openai',
   baseURL: '',
   modelId: '',
+  theme: 'system',
   hotkey: 'CommandOrControl+Shift+Space'
 }
 
 export interface PublicConfig {
+  models?: PublicModel[]
+  assistants?: AssistantConfig[]
+  activeAssistantId?: string
   providerId: ProviderId
   baseURL: string
   modelId: string
   hasApiKey: boolean
   hotkey: string
+  theme?: Theme
 }
 
 export interface ResolvedConfig {
+  systemPrompt?: string
+  assistantId?: string
   providerId: ProviderId
   baseURL: string
   modelId: string
   apiKey: string
   hotkey: string
+  theme?: Theme
 }

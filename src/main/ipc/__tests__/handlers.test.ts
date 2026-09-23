@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({
+  nativeTheme: {},
+  BrowserWindow: { getAllWindows: vi.fn(() => []) },
   ipcMain: {
     handle: vi.fn(),
     on: vi.fn()
@@ -43,6 +45,7 @@ vi.mock('../../hotkey', () => ({
 import { ipcMain } from 'electron'
 import { IPC } from '@shared/ipc'
 import type { PublicConfig } from '@shared/config'
+import { registerHotkey } from '../../hotkey'
 import { registerIpcHandlers } from '../handlers'
 import { getPublicConfig } from '../../config/resolve'
 import { loadConfig, saveConfig } from '../../config/store'
@@ -86,6 +89,13 @@ describe('registerIpcHandlers', () => {
 
     expect(loadConfig).toHaveBeenCalledTimes(1)
     expect(saveConfig).toHaveBeenCalledWith({ providerId: 'openai', baseURL: '', modelId: 'gpt-4o', hotkey: 'h' })
+  })
+
+  it('快捷键冲突时不持久化无效配置', () => {
+    vi.mocked(loadConfig).mockReturnValue({ providerId: 'openai', baseURL: '', modelId: '', hotkey: 'old' })
+    vi.mocked(registerHotkey).mockImplementationOnce(() => { throw new Error('快捷键已被占用') })
+    expect(() => handleFor(IPC.channels.configSet)(undefined, { hotkey: 'occupied' })).toThrow('快捷键已被占用')
+    expect(saveConfig).not.toHaveBeenCalled()
   })
 
   it('config:setKey 委托给 setApiKey', () => {

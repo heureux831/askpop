@@ -11,53 +11,65 @@ export function useChatStream() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesRef = useRef<ChatMessage[]>([])
+  const activeRequest = useRef<string | null>(null)
   const idRef = useRef(0)
 
   useEffect(() => {
-    messagesRef.current = messages
-  }, [messages])
-
-  useEffect(() => {
-    const offChunk = window.api.chat.onChunk((text) => {
-      const assistantId = messagesRef.current[messagesRef.current.length - 1]?.id
-      setMessages((m) =>
-        m.map((msg) => (msg.id === assistantId ? { ...msg, content: msg.content + text } : msg))
-      )
+    const offChunk = window.api.chat.onChunk((text, requestId) => {
+      if (!activeRequest.current || requestId !== activeRequest.current) return
+      const last = messagesRef.current.at(-1)
+      if (!last || last.role !== 'assistant') return
+      messagesRef.current = messagesRef.current.map((m) => m.id === last.id ? { ...m, content: m.content + text } : m)
+      setMessages(messagesRef.current)
     })
-    const offDone = window.api.chat.onDone(() => setIsStreaming(false))
-    const offError = window.api.chat.onError((message) => {
-      setError(message)
+    const finish = (requestId: string) => {
+      if (requestId !== activeRequest.current) return false
+      activeRequest.current = null
       setIsStreaming(false)
+      return true
+    }
+    const offDone = window.api.chat.onDone(finish)
+    const offError = window.api.chat.onError((message, requestId) => {
+      if (finish(requestId)) setError(message)
     })
     return () => {
+      activeRequest.current = null
+      window.api.chat.abort()
       offChunk()
       offDone()
       offError()
     }
   }, [])
 
-  const send = useCallback((text: string, opts?: { system?: string }) => {
+  const send = useCallback((text: string, opts?: { system?: string; replace?: boolean; assistantId?: string }) => {
+    const requestId = `request-${idRef.current++}`
+    activeRequest.current = requestId
     const userMsg: ChatMessage = { id: `u${idRef.current++}`, role: 'user', content: text }
     const assistantMsg: ChatMessage = { id: `a${idRef.current++}`, role: 'assistant', content: '' }
-    const history = [...messagesRef.current, userMsg]
-    setMessages((m) => [...m, userMsg, assistantMsg])
+    const history = [...(opts?.replace ? [] : messagesRef.current.filter((m) => m.content)), userMsg]
+    messagesRef.current = [...history, assistantMsg]
+    setMessages(messagesRef.current)
     setIsStreaming(true)
     setError(null)
     window.api.chat.stream({
+      requestId,
+      assistantId: opts?.assistantId,
       messages: history.map((m) => ({ role: m.role, content: m.content })),
       system: opts?.system
     })
   }, [])
 
   const stop = useCallback(() => {
+    activeRequest.current = null
     window.api.chat.abort()
     setIsStreaming(false)
   }, [])
   const reset = useCallback(() => {
+    stop()
+    messagesRef.current = []
     setMessages([])
-    setIsStreaming(false)
     setError(null)
-  }, [])
+  }, [stop])
 
   return { messages, isStreaming, error, send, stop, reset }
 }

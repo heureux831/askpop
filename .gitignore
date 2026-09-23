@@ -3,3 +3,15 @@ out
 dist
 *.log
 *.tsbuildinfo
+
+.DS_Store
+test-results
+playwright-report
+
+# Local tooling and credentials
+.superpowers/
+.env
+.env.*
+!.env.example
+secrets.bin
+model-secrets/

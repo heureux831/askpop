@@ -9,7 +9,7 @@ export type MiniRoute = 'home' | 'chat' | 'translate' | 'summary' | 'explanation
 interface Props {
   text: string
   setRoute: Dispatch<SetStateAction<MiniRoute>>
-  onSendMessage: (prompt?: string) => void
+  onSendMessage: (prompt?: string, translate?: boolean) => void
 }
 
 export interface FeatureMenusRef {
@@ -29,7 +29,7 @@ const FeatureMenus = forwardRef<FeatureMenusRef, Props>(({ text, setRoute, onSen
     () => [
       {
         icon: <MessageSquare className="size-4" />,
-        title: '对话',
+        title: '对话', description: '随时提问，延续思考',
         onClick: () => {
           if (text) {
             setRoute('chat')
@@ -39,12 +39,17 @@ const FeatureMenus = forwardRef<FeatureMenusRef, Props>(({ text, setRoute, onSen
       },
       {
         icon: <Languages className="size-4" />,
-        title: '翻译',
-        onClick: () => text && setRoute('translate')
+        title: '翻译', description: '跨越语言，准确表达',
+        onClick: () => {
+          if (text) {
+            setRoute('translate')
+            onSendMessage(undefined, true)
+          }
+        }
       },
       {
         icon: <FileText className="size-4" />,
-        title: '总结',
+        title: '总结', description: '提炼长文中的重点',
         onClick: () => {
           if (text) {
             setRoute('summary')
@@ -54,7 +59,7 @@ const FeatureMenus = forwardRef<FeatureMenusRef, Props>(({ text, setRoute, onSen
       },
       {
         icon: <Lightbulb className="size-4" />,
-        title: '解释',
+        title: '解释', description: '把复杂的事说清楚',
         onClick: () => {
           if (text) {
             setRoute('explanation')
@@ -79,17 +84,18 @@ const FeatureMenus = forwardRef<FeatureMenusRef, Props>(({ text, setRoute, onSen
 
   return (
     <Scrollbar className="h-auto shrink-0">
-      <div className="flex cursor-pointer flex-col gap-1">
+      <div className="feature-list">
         {features.map((feature, index) => (
           <button
             type="button"
             key={index}
+            aria-label={feature.title}
             onClick={feature.onClick}
             className={`flex w-full cursor-pointer flex-row items-center gap-3 rounded-lg border-0 bg-transparent px-4 py-2 text-left transition-colors select-none hover:bg-accent ${
               index === selectedIndex ? 'bg-accent' : ''
             }`}>
             {feature.icon}
-            <span className="m-0 flex-1 text-sm">{feature.title}</span>
+            <span className="feature-text"><strong>{feature.title}</strong><small>{feature.description}</small></span>
             {index === selectedIndex && <CornerDownLeft className="size-4 text-muted-foreground" />}
           </button>
         ))}

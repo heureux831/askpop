@@ -6,6 +6,8 @@ import { IPC } from '@shared/ipc'
 import { getResolvedConfig, resolveModel } from '../config/resolve'
 
 export interface StreamRequest {
+  assistantId?: string
+  requestId?: string
   messages: CoreMessage[]
   system?: string
 }
@@ -25,32 +27,48 @@ export class StreamManager {
     const controller = new AbortController()
     this.active.set(sender.id, controller)
 
+    const emit = (channel: string, payload: Record<string, unknown> = {}) => {
+      if (!controller.signal.aborted && this.active.get(sender.id) === controller && !sender.isDestroyed?.()) {
+        sender.send(channel, { ...payload, requestId: req.requestId })
+      }
+    }
+    let apiKey = ''
+    const errorMessage = (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error)
+      return apiKey ? message.split(apiKey).join('[已隐藏]') : message
+    }
     const impl = this.opts.streamTextImpl ?? streamText
     try {
-      const config = getResolvedConfig()
+      const config = getResolvedConfig(req.assistantId)
+      apiKey = config.apiKey
       if (!config.apiKey) {
-        sender.send(IPC.events.chatError, { message: 'NO_API_KEY' })
+        emit(IPC.events.chatError, { message: 'NO_API_KEY' })
         return
       }
       if (!config.modelId) {
-        sender.send(IPC.events.chatError, { message: 'NO_MODEL' })
+        emit(IPC.events.chatError, { message: 'NO_MODEL' })
         return
       }
 
       const model = resolveModel(config)
+      let streamFailed = false
       const { textStream } = impl({
         model,
-        system: req.system,
+        system: [config.systemPrompt, req.system].filter(Boolean).join('\n\n') || undefined,
         messages: req.messages,
-        abortSignal: controller.signal
+        abortSignal: controller.signal,
+        onError: ({ error }) => {
+          streamFailed = true
+          emit(IPC.events.chatError, { message: errorMessage(error) })
+        }
       })
       for await (const text of textStream) {
-        sender.send(IPC.events.chatChunk, { text })
+        emit(IPC.events.chatChunk, { text })
       }
-      sender.send(IPC.events.chatDone, undefined)
+      if (!streamFailed) emit(IPC.events.chatDone)
     } catch (err) {
       if (!controller.signal.aborted) {
-        sender.send(IPC.events.chatError, { message: (err as Error).message })
+        emit(IPC.events.chatError, { message: errorMessage(err) })
       }
     } finally {
       if (this.active.get(sender.id) === controller) {

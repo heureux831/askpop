@@ -1,108 +1,24 @@
 import { CornerDownLeft, FileText, Languages, Lightbulb, MessageSquare } from 'lucide-react'
-import type { Dispatch, SetStateAction } from 'react'
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
-
+import { forwardRef, useImperativeHandle, useState } from 'react'
+import type { QuickTask } from '@shared/tasks'
 import { Scrollbar } from './ui'
-
-export type MiniRoute = 'home' | 'chat' | 'translate' | 'summary' | 'explanation'
-
-interface Props {
-  text: string
-  setRoute: Dispatch<SetStateAction<MiniRoute>>
-  onSendMessage: (prompt?: string, translate?: boolean) => void
-}
-
-export interface FeatureMenusRef {
-  nextFeature(): void
-  prevFeature(): void
-  useFeature(): void
-  resetSelectedIndex(): void
-}
-
-const PROMPT_SUMMARY = '请总结以下内容，用简洁的中文概括要点：'
-const PROMPT_EXPLANATION = '请用通俗易懂的中文解释以下内容：'
-
-const FeatureMenus = forwardRef<FeatureMenusRef, Props>(({ text, setRoute, onSendMessage }, ref) => {
-  const [selectedIndex, setSelectedIndex] = useState(0)
-
-  const features = useMemo(
-    () => [
-      {
-        icon: <MessageSquare className="size-4" />,
-        title: '对话', description: '随时提问，延续思考',
-        onClick: () => {
-          if (text) {
-            setRoute('chat')
-            onSendMessage()
-          }
-        }
-      },
-      {
-        icon: <Languages className="size-4" />,
-        title: '翻译', description: '跨越语言，准确表达',
-        onClick: () => {
-          if (text) {
-            setRoute('translate')
-            onSendMessage(undefined, true)
-          }
-        }
-      },
-      {
-        icon: <FileText className="size-4" />,
-        title: '总结', description: '提炼长文中的重点',
-        onClick: () => {
-          if (text) {
-            setRoute('summary')
-            onSendMessage(PROMPT_SUMMARY)
-          }
-        }
-      },
-      {
-        icon: <Lightbulb className="size-4" />,
-        title: '解释', description: '把复杂的事说清楚',
-        onClick: () => {
-          if (text) {
-            setRoute('explanation')
-            onSendMessage(PROMPT_EXPLANATION)
-          }
-        }
-      }
-    ],
-    [onSendMessage, setRoute, text]
-  )
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      nextFeature: () => setSelectedIndex((p) => (p < features.length - 1 ? p + 1 : 0)),
-      prevFeature: () => setSelectedIndex((p) => (p > 0 ? p - 1 : features.length - 1)),
-      useFeature: () => features[selectedIndex].onClick?.(),
-      resetSelectedIndex: () => setSelectedIndex(0)
-    }),
-    [features, selectedIndex]
-  )
-
-  return (
-    <Scrollbar className="h-auto shrink-0">
-      <div className="feature-list">
-        {features.map((feature, index) => (
-          <button
-            type="button"
-            key={index}
-            aria-label={feature.title}
-            onClick={feature.onClick}
-            className={`flex w-full cursor-pointer flex-row items-center gap-3 rounded-lg border-0 bg-transparent px-4 py-2 text-left transition-colors select-none hover:bg-accent ${
-              index === selectedIndex ? 'bg-accent' : ''
-            }`}>
-            {feature.icon}
-            <span className="feature-text"><strong>{feature.title}</strong><small>{feature.description}</small></span>
-            {index === selectedIndex && <CornerDownLeft className="size-4 text-muted-foreground" />}
-          </button>
-        ))}
-      </div>
-    </Scrollbar>
-  )
+export type MiniRoute = 'home' | 'chat'
+interface Props { text: string; tasks: QuickTask[]; onChoose(task: QuickTask): void }
+export interface FeatureMenusRef { nextFeature(): void; prevFeature(): void; useFeature(): void; resetSelectedIndex(): void }
+const icons = { chat: MessageSquare, translate: Languages, summary: FileText, explanation: Lightbulb }
+const FeatureMenus = forwardRef<FeatureMenusRef, Props>(({ text, tasks, onChoose }, ref) => {
+  const [selected, setSelected] = useState(0)
+  const selectedIndex = Math.min(selected, Math.max(0, tasks.length - 1))
+  const choose = (task?: QuickTask) => { if (text && task) onChoose(task) }
+  useImperativeHandle(ref, () => ({
+    nextFeature: () => setSelected((p) => tasks.length ? (p + 1) % tasks.length : 0),
+    prevFeature: () => setSelected((p) => tasks.length ? (p + tasks.length - 1) % tasks.length : 0),
+    useFeature: () => choose(tasks[selectedIndex]), resetSelectedIndex: () => setSelected(0)
+  }), [tasks, selectedIndex, text, onChoose])
+  return <Scrollbar className="h-auto shrink-0"><div className="feature-list">{tasks.map((task, index) => {
+    const Icon = icons[task.icon] ?? MessageSquare
+    return <button type="button" key={task.id} aria-label={task.title} onMouseEnter={() => setSelected(index)} onClick={() => choose(task)} className={`flex w-full cursor-pointer flex-row items-center gap-3 rounded-lg border-0 bg-transparent px-4 py-2 text-left transition-colors select-none hover:bg-accent ${index === selectedIndex ? 'bg-accent' : ''}`}><Icon className="size-4" /><span className="feature-text"><strong>{task.title}</strong>{task.description && <small>{task.description}</small>}</span>{index === selectedIndex && <CornerDownLeft className="size-4 text-muted-foreground" />}</button>
+  })}</div></Scrollbar>
 })
 FeatureMenus.displayName = 'FeatureMenus'
-
 export default FeatureMenus

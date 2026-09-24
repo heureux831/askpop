@@ -1,3 +1,5 @@
+import type { ProviderInput } from '@shared/providers'
+import type { QuickTask } from '@shared/tasks'
 import type { PublicConfig, StoredConfig, ModelInput, AssistantInput } from '@shared/config'
 
 declare global {
@@ -7,6 +9,8 @@ declare global {
         readText(): Promise<string>
         writeText(text: string): Promise<void>
       }
+      providers: { save(input: ProviderInput): Promise<PublicConfig>; delete(id: string): Promise<PublicConfig> }
+      tasks: { save(tasks: QuickTask[]): Promise<PublicConfig> }
       models: {
         save(input: ModelInput): Promise<PublicConfig>
         delete(id: string): Promise<PublicConfig>
@@ -23,8 +27,9 @@ declare global {
         setKey(apiKey: string): Promise<void>
       }
       chat: {
-        stream(req: { requestId: string; assistantId?: string; messages: { role: 'user' | 'assistant'; content: string }[]; system?: string }): void
+        stream(req: { requestId: string; assistantId?: string; taskId?: string; messages: { role: 'user' | 'assistant'; content: string }[]; system?: string }): void
         abort(): void
+        onReasoning(cb: (text: string, requestId: string) => void): () => void
         onChunk(cb: (text: string, requestId: string) => void): () => void
         onDone(cb: (requestId: string) => void): () => void
         onError(cb: (message: string, requestId: string) => void): () => void

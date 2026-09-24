@@ -33,6 +33,10 @@ export function saveConfig(cfg: StoredConfig): void {
     const previous = JSON.parse(readFileSync(path, 'utf8'))
     if (!previous.models) copyFileSync(path, `${path}.v1.bak`)
   }
+  if (cfg.providers && existsSync(path) && !existsSync(`${path}.v3.bak`)) {
+    const previous = JSON.parse(readFileSync(path, 'utf8'))
+    if (!previous.providers) copyFileSync(path, `${path}.v3.bak`)
+  }
   writeFileSync(`${path}.tmp`, JSON.stringify(cfg, null, 2), { encoding: 'utf8', mode: 0o600 })
   renameSync(`${path}.tmp`, path)
 }

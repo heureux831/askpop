@@ -53,6 +53,7 @@ export function getModelApiKey(modelId: string): string | null {
 export function removeModelApiKey(modelId: string): void {
   const path = modelSecretPath(modelId)
   if (existsSync(path)) unlinkSync(path)
+  if (modelId === 'legacy-model' && existsSync(getSecretFilePath())) unlinkSync(getSecretFilePath())
 }
 
 export function setApiKey(plain: string): void {

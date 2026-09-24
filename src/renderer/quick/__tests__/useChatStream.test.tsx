@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStream } from '../useChatStream'
 
 function mockApi() {
+  const reasoningCbs: Array<(t: string, id: string) => void> = []
   const chunkCbs: Array<(t: string, id: string) => void> = []
   const doneCbs: Array<(id: string) => void> = []
   const errorCbs: Array<(m: string, id: string) => void> = []
@@ -12,13 +13,14 @@ function mockApi() {
     chat: {
       stream: vi.fn(),
       abort: vi.fn(),
+      onReasoning: (cb: (t: string, id: string) => void) => { reasoningCbs.push(cb); return () => {} },
       onChunk: (cb: (t: string, id: string) => void) => { chunkCbs.push(cb); return () => {} },
       onDone: (cb: (id: string) => void) => { doneCbs.push(cb); return () => {} },
       onError: (cb: (m: string, id: string) => void) => { errorCbs.push(cb); return () => {} }
     }
   }
   ;(globalThis as any).api = api
-  return { api, chunkCbs, doneCbs, errorCbs }
+  return { api, reasoningCbs, chunkCbs, doneCbs, errorCbs }
 }
 
 describe('useChatStream', () => {
@@ -41,6 +43,19 @@ describe('useChatStream', () => {
     act(() => chunkCbs.forEach((cb) => cb('你', 'request-0')))
     act(() => chunkCbs.forEach((cb) => cb('好', 'request-0')))
     expect(result.current.messages[1].content).toBe('你好')
+  })
+
+  it('思考文本独立累积，不进入答案和后续消息历史；停止后忽略迟到的思考', () => {
+    const { api, reasoningCbs, chunkCbs } = mockApi()
+    const { result } = renderHook(() => useChatStream())
+    act(() => result.current.send('hi', { taskId: 'translate' }))
+    act(() => reasoningCbs.forEach((cb) => cb('正在分析', 'request-0')))
+    act(() => chunkCbs.forEach((cb) => cb('答案', 'request-0')))
+    expect(result.current.messages[1]).toMatchObject({ content: '答案', reasoning: '正在分析' })
+    act(() => result.current.stop())
+    act(() => reasoningCbs.forEach((cb) => cb('迟到', 'request-0')))
+    act(() => result.current.send('继续', { taskId: 'translate' }))
+    expect(api.chat.stream.mock.calls.at(-1)?.[0]).toMatchObject({ taskId: 'translate', messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: '答案' }, { role: 'user', content: '继续' }] })
   })
 
   it('done 后 isStreaming 归 false', () => {

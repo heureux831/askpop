@@ -1,62 +1,17 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Check, ChevronDown, KeyRound, Monitor, Moon, Sun, Trash2 } from 'lucide-react'
-import { PROVIDERS, type AssistantConfig, type AssistantInput, type ModelInput, type PublicModel, type PublicConfig, type Theme } from '@shared/config'
-import { MODEL_PRESETS, getModelPreset, thinkingEnabled, type ThinkingEffort } from '@shared/modelPresets'
+import { Check, ChevronDown, Monitor, Moon, Sun, Trash2 } from 'lucide-react'
+import { type AssistantConfig, type AssistantInput, type PublicModel, type PublicConfig, type Theme } from '@shared/config'
+import type { PublicProvider } from '@shared/providers'
 import AssistantAvatar from '../shared/AssistantAvatar'
 import { formatAccelerator } from './accelerator'
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return <div className="form-field"><label><span className="field-label field-label-block">{label}</span>{children}</label>{hint && <span className="field-hint">{hint}</span>}</div>
 }
-function Feedback({ error, saved }: { error: string; saved: boolean }) {
+export function Feedback({ error, saved }: { error: string; saved: boolean }) {
   return <>{error && <p className="form-error" role="alert">{error}</p>}{saved && <p className="save-feedback" role="status"><Check size={14} /> 更改已保存</p>}</>
 }
-interface BaseProps { onDirty(): void; onSaved(config: PublicConfig, id?: string): void; onDelete?(): void }
-
-export function ModelEditor({ model, ...props }: BaseProps & { model?: PublicModel }) {
-  const [form, setForm] = useState<ModelInput>(model ? { ...model, apiKey: '' } : { name: '', providerId: 'openai', modelId: 'gpt-4o', baseURL: 'https://api.openai.com/v1', apiKey: '' })
-  const [error, setError] = useState(''), [saved, setSaved] = useState(false), [saving, setSaving] = useState(false)
-  const update = (patch: Partial<ModelInput>) => { setForm((v) => ({ ...v, ...patch })); setSaved(false); props.onDirty() }
-  const provider = PROVIDERS.find((p) => p.id === form.providerId)!
-  const preset = getModelPreset(form)
-  const enabled = thinkingEnabled(form, preset)
-  const inherits = !form.thinking || form.thinking === 'default'
-  const resetThinking = { thinking: 'default' as const, thinkingEffort: undefined, thinkingBudget: undefined }
-  const presets = MODEL_PRESETS.filter((p) => form.providerId === 'custom' || p.providerId === form.providerId)
-  const effortLabels: Record<ThinkingEffort, string> = { low: '低 · 更快响应', medium: '中 · 平衡', high: '高 · 深入分析', xhigh: '极高', max: '最高' }
-  const submit = async (event: FormEvent) => {
-    event.preventDefault(); setError(''); setSaving(true)
-    try {
-      const config = await window.api.models.save(form)
-      setForm((v) => ({ ...v, apiKey: '' })); setSaved(true)
-      props.onSaved(config, form.id ?? config.models?.at(-1)?.id)
-    } catch (error) { setError((error as Error).message) } finally { setSaving(false) }
-  }
-  return <form className="detail-form" onSubmit={submit}>
-    <header className="detail-heading"><div><h2>{model ? '编辑模型' : '连接一个模型'}</h2><p>配置一次，即可供多个助手使用。</p></div><span className={`connection-status ${model?.hasApiKey ? 'is-ready' : ''}`}><span />{model?.hasApiKey ? '已配置' : '待配置'}</span></header>
-    <div className="form-scroll">
-      <Field label="配置名称" hint="给这个连接起一个容易辨认的名字。"><input aria-label="配置名称" autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} placeholder="例如：DeepSeek 日常" maxLength={80} required /></Field>
-      <div className="form-divider" />
-      <Field label="供应商"><div className="select-wrap"><select aria-label="供应商" value={form.providerId} onChange={(e) => { const provider = PROVIDERS.find((p) => p.id === e.target.value)!; update({ providerId: provider.id, modelId: provider.defaultModel, baseURL: provider.defaultBaseURL, apiKey: '', presetId: undefined, ...resetThinking }) }}>{PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select><ChevronDown size={14} /></div></Field>
-      <Field label="模型预设" hint={form.providerId === 'custom' ? '为兼容接口选择参数预设；地址保持不变，模型 ID 可改为服务商的别名。' : '预设会填入模型 ID，并提供该型号支持的思考选项。'}><div className="select-wrap"><select aria-label="模型预设" value={form.presetId ?? ''} onChange={(e) => {
-        const chosen = MODEL_PRESETS.find((p) => p.id === e.target.value)
-        update({ presetId: chosen?.id, ...(chosen ? { modelId: chosen.modelId } : {}), ...resetThinking })
-      }}><option value="">按模型 ID 自动识别 / 手动填写</option>{presets.map((p) => <option key={p.id} value={p.id}>{form.providerId === 'custom' ? `${PROVIDERS.find((provider) => provider.id === p.providerId)?.label} · ` : ''}{p.name}</option>)}</select><ChevronDown size={14} /></div></Field>
-      <Field label="模型 ID" hint="填写服务商提供的准确模型名称；预设不代表账户已开通该模型。"><input aria-label="模型 ID" value={form.modelId} onChange={(e) => update({ modelId: e.target.value, ...(!form.presetId ? resetThinking : {}) })} list="model-presets" placeholder="例如：deepseek-flash" className="mono-input" required /><datalist id="model-presets">{[...new Set([...provider.models, ...presets.map((p) => p.modelId)])].map((id) => <option key={id} value={id} />)}</datalist></Field>
-      <section className="thinking-settings" aria-label="模型思考配置">
-        <div className="thinking-heading"><div><strong>深度思考</strong><p>{preset ? preset.description : '尚未识别模型能力。请选择兼容的模型预设以控制思考。'}</p></div><button type="button" role="switch" aria-label="深度思考" aria-checked={enabled} disabled={!preset || preset.thinking === 'none' || !preset.canDisable} className="thinking-switch" onClick={() => update({ thinking: enabled ? 'disabled' : 'enabled' })}><span /></button></div>
-        <div className="thinking-state"><span>{!preset ? '使用服务商默认参数' : preset.thinking === 'none' ? '此型号不支持深度思考' : !preset.canDisable ? '此型号无法关闭推理' : inherits ? `沿用服务商默认${enabled ? '（开启）' : '（关闭）'}` : enabled ? '已开启 · 首字等待可能更长' : '已关闭 · 优先快速回答'}</span>{!inherits && <button type="button" className="thinking-reset" onClick={() => update(resetThinking)}>恢复默认</button>}</div>
-        {preset && <div className="preset-caption">参数预设：{preset.name}</div>}
-        {enabled && preset?.efforts && <Field label="思考强度"><div className="select-wrap"><select aria-label="思考强度" value={inherits ? '' : form.thinkingEffort ?? preset.defaultEffort} onChange={(e) => update(e.target.value ? { thinking: 'enabled', thinkingEffort: e.target.value as ThinkingEffort } : resetThinking)}><option value="">服务商默认</option>{preset.efforts.map((effort) => <option key={effort} value={effort}>{effortLabels[effort]}</option>)}</select><ChevronDown size={14} /></div></Field>}
-        {enabled && preset?.thinking === 'anthropic-budget' && <Field label="思考预算" hint="1024～16000 Token。更高预算可能增加等待与费用。"><input aria-label="思考预算" type="number" min={1024} max={16000} step={1} value={form.thinkingBudget ?? preset.defaultBudget} onChange={(e) => update({ thinking: 'enabled', thinkingBudget: Number(e.target.value) })} required /></Field>}
-      </section>
-      <Field label="API 地址" hint="支持官方接口和兼容接口，通常以 /v1 结尾。"><input aria-label="API 地址" type="url" value={form.baseURL} onChange={(e) => update({ baseURL: e.target.value, ...(!form.presetId && form.providerId === 'custom' ? resetThinking : {}) })} placeholder="https://api.example.com/v1" className="mono-input" required /></Field>
-      <Field label="API Key" hint={model?.hasApiKey ? '已安全保存。留空保留当前 Key。' : '仅在本机加密保存，不会显示已保存的 Key。'}><div className="secret-input"><KeyRound size={15} /><input aria-label="API Key" type="password" autoComplete="new-password" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} placeholder={model?.hasApiKey ? '••••••••  已保存' : '输入 API Key'} required={!model?.hasApiKey} /></div></Field>
-      <Feedback error={error} saved={saved} />
-    </div>
-    <footer className="editor-actions">{model && <button type="button" className="text-button danger" onClick={props.onDelete}><Trash2 size={14} />删除模型</button>}<button className="primary-button" disabled={saving} type="submit">{saving ? '正在保存…' : '保存模型'}</button></footer>
-  </form>
-}
+export interface BaseProps { onDirty(): void; onSaved(config: PublicConfig, id?: string): void; onDelete?(): void }
 
 const templates = [
   { label: '日常问答', icon: 'spark', prompt: '你是一位可靠的日常助手。用简洁、清晰的中文回答问题；遇到不确定的信息请明确说明。' },
@@ -64,7 +19,7 @@ const templates = [
   { label: '写作润色', icon: 'pen', prompt: '你是一位中文编辑。保留原文的含义和语气，改善用词、结构与可读性。默认直接给出润色后的文本，不添加无关解释。' }
 ] as const
 
-export function AssistantEditor({ assistant, models, ...props }: BaseProps & { assistant?: AssistantConfig; models: PublicModel[] }) {
+export function AssistantEditor({ assistant, models, providers, ...props }: BaseProps & { assistant?: AssistantConfig; models: PublicModel[]; providers: PublicProvider[] }) {
   const [form, setForm] = useState<AssistantInput>(assistant ? { ...assistant } : { name: '', modelConfigId: models[0]?.id ?? '', systemPrompt: '', icon: 'spark' })
   const [error, setError] = useState(''), [saved, setSaved] = useState(false), [saving, setSaving] = useState(false)
   const update = (patch: Partial<AssistantInput>) => { setForm((v) => ({ ...v, ...patch })); setSaved(false); props.onDirty() }
@@ -80,7 +35,7 @@ export function AssistantEditor({ assistant, models, ...props }: BaseProps & { a
     <div className="form-scroll">
       <Field label="助手名称"><input aria-label="助手名称" autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} placeholder="例如：代码搭档" maxLength={60} required /></Field>
       <div className="form-field"><span className="field-label">助手图标</span><div className="icon-options">{(['spark', 'code', 'pen', 'languages'] as const).map((icon, i) => <button type="button" key={icon} aria-label={['通用图标', '代码图标', '写作图标', '翻译图标'][i]} aria-pressed={form.icon === icon} onClick={() => update({ icon })}><AssistantAvatar icon={icon} /></button>)}</div></div>
-      <Field label="使用模型" hint="模型的 API 配置在「模型管理」中维护。"><div className="select-wrap"><select aria-label="使用模型" value={form.modelConfigId} onChange={(e) => update({ modelConfigId: e.target.value })} required>{!models.length && <option value="">请先添加模型</option>}{models.map((m) => <option key={m.id} value={m.id}>{m.name} — {m.modelId}{m.hasApiKey ? '' : '（待配置）'}</option>)}</select><ChevronDown size={14} /></div></Field>
+      <Field label="使用模型" hint="按服务商分类，连接与温度在「模型服务」中维护。"><div className="select-wrap"><select aria-label="使用模型" value={form.modelConfigId} onChange={(e) => update({ modelConfigId: e.target.value })} required>{!models.length && <option value="">请先添加模型</option>}{providers.filter((p) => models.some((m) => m.providerConfigId === p.id)).map((p) => <optgroup key={p.id} label={p.name}>{models.filter((m) => m.providerConfigId === p.id).map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasApiKey ? '' : '（待配置）'}</option>)}</optgroup>)}</select><ChevronDown size={14} /></div></Field>
       <div className="form-divider" />
       <Field label="系统提示词" hint="描述助手的角色、回答方式和约束。留空时使用模型的默认行为。"><textarea aria-label="系统提示词" rows={8} value={form.systemPrompt} onChange={(e) => update({ systemPrompt: e.target.value })} placeholder="你是一位…\n请使用…的方式回答。" /></Field>
       <div className="prompt-tools"><span>从模板开始</span><div>{templates.map((t) => <button type="button" key={t.icon} onClick={() => update({ systemPrompt: t.prompt, icon: t.icon })}>{t.label}</button>)}</div></div>

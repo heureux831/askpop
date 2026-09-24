@@ -1,3 +1,4 @@
+import { getTaskPrompt } from '../config/catalog'
 import type { WebContents } from 'electron'
 import { streamText, type CoreMessage } from 'ai'
 
@@ -6,6 +7,7 @@ import { IPC } from '@shared/ipc'
 import { getResolvedConfig, resolveModel } from '../config/resolve'
 
 export interface StreamRequest {
+  taskId?: string
   assistantId?: string
   requestId?: string
   messages: CoreMessage[]
@@ -41,7 +43,7 @@ export class StreamManager {
     try {
       const config = getResolvedConfig(req.assistantId)
       apiKey = config.apiKey
-      if (!config.apiKey) {
+      if (!config.apiKey && !config.keyOptional) {
         emit(IPC.events.chatError, { message: 'NO_API_KEY' })
         return
       }
@@ -50,11 +52,12 @@ export class StreamManager {
         return
       }
 
-      const model = resolveModel(config)
+      const model = resolveModel(config, (text) => emit(IPC.events.chatReasoning, { text }))
       let streamFailed = false
       const { textStream } = impl({
         model,
-        system: [config.systemPrompt, req.system].filter(Boolean).join('\n\n') || undefined,
+        temperature: config.temperature,
+        system: [config.systemPrompt, getTaskPrompt(req.taskId), req.system].filter(Boolean).join('\n\n') || undefined,
         messages: req.messages,
         abortSignal: controller.signal,
         onError: ({ error }) => {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { generateText } from 'ai'
+import { generateText, streamText } from 'ai'
 import type { ResolvedConfig } from '@shared/config'
 import { resolveModel } from '../resolve'
 import { modelRequestBody } from '../modelRequest'
@@ -18,7 +18,7 @@ async function wire(cfg: ResolvedConfig, anthropic = false) {
     usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
   }), { headers: { 'content-type': 'application/json' } }))
   vi.stubGlobal('fetch', spy)
-  await generateText({ model: resolveModel(cfg), messages: [{ role: 'user', content: 'hi' }], maxTokens: 128, maxRetries: 0 })
+  await generateText({ model: resolveModel(cfg), messages: [{ role: 'user', content: 'hi' }], temperature: cfg.temperature, maxTokens: 128, maxRetries: 0 })
   const [url, init] = (spy.mock.calls as unknown as [string, RequestInit][])[0]
   return { url, body: JSON.parse(init.body as string), headers: init.headers as Record<string, string> }
 }
@@ -76,4 +76,31 @@ describe('thinking parameters reach the provider through the real SDK', () => {
     expect(() => modelRequestBody({ ...base, thinking: 'enabled', thinkingEffort: 'medium' }, {})).toThrow('强度')
     expect(() => modelRequestBody({ ...base, providerId: 'anthropic', modelId: 'claude-sonnet-4-5', thinkingBudget: 12 }, {})).toThrow('预算')
   })
+  it('sends configured temperature including zero, and leaves defaults unset', async () => {
+    expect((await wire({ ...base, temperature: 0 })).body.temperature).toBe(0)
+    expect((await wire(base)).body).not.toHaveProperty('temperature')
+  })
+  it('streams Anthropic reasoning and answer separately through the real SDK', async () => {
+    const events = [
+      { type: 'message_start', message: { id: 'm', type: 'message', role: 'assistant', model: 'claude', content: [], usage: { input_tokens: 1, output_tokens: 0 } } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: '分析内容' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'signature' } },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: '正式答案' } },
+      { type: 'content_block_stop', index: 1 },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 10 } },
+      { type: 'message_stop' }
+    ]
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(events.map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join(''), { headers: { 'content-type': 'text/event-stream' } })))
+    const reasoning: string[] = []
+    const model = resolveModel({ ...base, protocol: 'anthropic', modelId: 'custom-claude-alias', baseURL: 'https://proxy.example.test/v1' }, (text) => reasoning.push(text))
+    const result = streamText({ model, prompt: 'hi', maxRetries: 0 })
+    let answer = ''
+    for await (const text of result.textStream) answer += text
+    expect(answer).toBe('正式答案')
+    expect(reasoning).toEqual(['分析内容'])
+  })
+
 })

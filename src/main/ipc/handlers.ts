@@ -1,6 +1,6 @@
 import { ipcMain, nativeTheme, clipboard, BrowserWindow } from 'electron'
 
-import { saveModel, deleteModel, saveAssistant, deleteAssistant, selectAssistant } from '../config/catalog'
+import { saveProvider, deleteProvider, saveTasks, saveModel, deleteModel, saveAssistant, deleteAssistant, selectAssistant } from '../config/catalog'
 import { IPC } from '@shared/ipc'
 import { streamManager } from '../chat/streamManager'
 import { getPublicConfig } from '../config/resolve'
@@ -19,6 +19,7 @@ function notifyConfigChanged(): void {
 
 export function registerIpcHandlers(): void {
   for (const [channel, action] of [
+    [IPC.channels.providerSave, saveProvider], [IPC.channels.providerDelete, deleteProvider], [IPC.channels.tasksSave, saveTasks],
     [IPC.channels.modelSave, saveModel], [IPC.channels.modelDelete, deleteModel],
     [IPC.channels.assistantSave, saveAssistant], [IPC.channels.assistantDelete, deleteAssistant],
     [IPC.channels.assistantSelect, selectAssistant]

@@ -2,6 +2,9 @@ export const IPC = {
   channels: {
     clipboardRead: 'clipboard:read',
     clipboardWrite: 'clipboard:write',
+    providerSave: 'provider:save',
+    providerDelete: 'provider:delete',
+    tasksSave: 'tasks:save',
     modelSave: 'model:save',
     modelDelete: 'model:delete',
     assistantSave: 'assistant:save',
@@ -21,6 +24,7 @@ export const IPC = {
   },
   events: {
     configChanged: 'config:changed',
+    chatReasoning: 'chat:reasoning',
     chatChunk: 'chat:chunk',
     chatDone: 'chat:done',
     chatError: 'chat:error',

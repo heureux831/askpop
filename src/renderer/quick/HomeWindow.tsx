@@ -9,12 +9,13 @@ import FeatureMenus, { type FeatureMenusRef, type MiniRoute } from './components
 import Footer from './components/Footer'
 import InputBar from './components/InputBar'
 import MessageList from './components/MessageList'
-import TranslateWindow, { SYSTEM_TRANSLATE } from './components/TranslateWindow'
+import { DEFAULT_TASKS, type QuickTask } from '@shared/tasks'
 import { useChatStream } from './useChatStream'
 import { useClipboard } from './useClipboard'
 
 export default function HomeWindow() {
   const [route, setRoute] = useState<MiniRoute>('home')
+  const [taskId, setTaskId] = useState<string | undefined>()
   const [isFirstMessage, setIsFirstMessage] = useState(true)
   const [input, setInput] = useState('')
   const [isPinned, setIsPinned] = useState(false)
@@ -53,9 +54,9 @@ export default function HomeWindow() {
     const receive = (cfg: PublicConfig) => {
       const active = cfg.assistants?.find((a) => a.id === cfg.activeAssistantId)
       const model = cfg.models?.find((m) => m.id === active?.modelConfigId)
-      const stamp = JSON.stringify([active, model])
+      const stamp = JSON.stringify([active, model, cfg.providers?.find((p) => p.id === model?.providerConfigId), cfg.tasks])
       if (assistantStamp.current && assistantStamp.current !== stamp) {
-        reset(); setRoute('home'); setIsFirstMessage(true); setInput('')
+        reset(); setTaskId(undefined); setRoute('home'); setIsFirstMessage(true); setInput('')
       }
       assistantStamp.current = stamp
       setConfig(cfg)
@@ -92,15 +93,16 @@ export default function HomeWindow() {
   useEffect(() => window.api.quick.onShown(onWindowShow), [onWindowShow])
 
   const handleSend = useCallback(
-    (prompt?: string, translate = false) => {
-      const text = [prompt, requestText].filter(Boolean).join('\n\n')
+    (task?: QuickTask) => {
+      const text = requestText
       if (!text.trim()) return
       if (!activeAssistant) { window.api.settings.open(); return }
+      if (task) { setTaskId(task.id); setRoute('chat') }
       setIsFirstMessage(false)
       setInput('')
-      send(text, { assistantId: activeAssistant.id, ...(translate ? { system: SYSTEM_TRANSLATE, replace: true } : {}) })
+      send(text, { assistantId: activeAssistant.id, taskId: task?.id ?? taskId })
     },
-    [requestText, send, activeAssistant]
+    [requestText, send, activeAssistant, taskId]
   )
 
   const handleEsc = useCallback(() => {
@@ -113,6 +115,7 @@ export default function HomeWindow() {
       return
     }
     reset()
+    setTaskId(undefined)
     setRoute('home')
     setIsFirstMessage(true)
     setInput('')
@@ -135,7 +138,7 @@ export default function HomeWindow() {
         if (requestText) {
           if (route === 'home') menusRef.current?.useFeature()
           else {
-            handleSend(undefined, route === 'translate')
+            handleSend()
           }
         }
         break
@@ -164,9 +167,7 @@ export default function HomeWindow() {
     if (route !== 'home') {
       return (
         <>
-          {route === 'translate'
-            ? <TranslateWindow messages={messages} isStreaming={isStreaming} />
-            : <MessageList messages={messages} isStreaming={isStreaming} />}
+          <MessageList messages={messages} isStreaming={isStreaming} />
           {error && (
             <div role="alert" className="rounded border border-error-border bg-error-subtle px-3 py-2 text-[13px]">
               {error === 'NO_API_KEY'
@@ -184,7 +185,7 @@ export default function HomeWindow() {
       <>
         <ClipboardPreview clipboardText={clipboardText} clearClipboard={clearClipboard} />
         <main className="flex flex-1 flex-col overflow-hidden">
-          <FeatureMenus setRoute={setRoute} onSendMessage={handleSend} text={requestText} ref={menusRef} />
+          <FeatureMenus tasks={config?.tasks ?? DEFAULT_TASKS} onChoose={handleSend} text={requestText} ref={menusRef} />
         </main>
       </>
     )
@@ -211,7 +212,7 @@ export default function HomeWindow() {
         text={input}
         placeholder="输入问题或选择下方功能…"
         loading={isStreaming}
-        onSubmit={() => { if (!isStreaming && requestText) { if (route === 'home') menusRef.current?.useFeature(); else handleSend(undefined, route === 'translate') } }}
+        onSubmit={() => { if (!isStreaming && requestText) { if (route === 'home') menusRef.current?.useFeature(); else handleSend() } }}
         handleKeyDown={handleKeyDown}
         handleChange={(e) => setInput(e.target.value)}
       />

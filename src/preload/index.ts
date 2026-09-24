@@ -1,3 +1,5 @@
+import type { ProviderInput } from '@shared/providers'
+import type { QuickTask } from '@shared/tasks'
 import { contextBridge, ipcRenderer } from 'electron'
 
 import { IPC } from '../shared/ipc'
@@ -10,6 +12,11 @@ const api = {
     readText: (): Promise<string> => ipcRenderer.invoke(IPC.channels.clipboardRead),
     writeText: (text: string): Promise<void> => ipcRenderer.invoke(IPC.channels.clipboardWrite, text)
   },
+  providers: {
+    save: (input: ProviderInput): Promise<PublicConfig> => ipcRenderer.invoke(IPC.channels.providerSave, input),
+    delete: (id: string): Promise<PublicConfig> => ipcRenderer.invoke(IPC.channels.providerDelete, id)
+  },
+  tasks: { save: (tasks: QuickTask[]): Promise<PublicConfig> => ipcRenderer.invoke(IPC.channels.tasksSave, tasks) },
   models: {
     save: (input: ModelInput): Promise<PublicConfig> => ipcRenderer.invoke(IPC.channels.modelSave, input),
     delete: (id: string): Promise<PublicConfig> => ipcRenderer.invoke(IPC.channels.modelDelete, id)
@@ -30,8 +37,13 @@ const api = {
     setKey: (apiKey: string): Promise<void> => ipcRenderer.invoke(IPC.channels.configSetKey, { apiKey })
   },
   chat: {
-    stream: (req: { requestId: string; assistantId?: string; messages: unknown[]; system?: string }): void => ipcRenderer.send(IPC.channels.chatStream, req),
+    stream: (req: { requestId: string; assistantId?: string; taskId?: string; messages: unknown[]; system?: string }): void => ipcRenderer.send(IPC.channels.chatStream, req),
     abort: (): void => ipcRenderer.send(IPC.channels.chatAbort),
+    onReasoning: (cb: (text: string, requestId: string) => void): Unsubscriber => {
+      const l = (_e: unknown, p: { text: string; requestId: string }) => cb(p.text, p.requestId)
+      ipcRenderer.on(IPC.events.chatReasoning, l)
+      return () => ipcRenderer.removeListener(IPC.events.chatReasoning, l)
+    },
     onChunk: (cb: (text: string, requestId: string) => void): Unsubscriber => {
       const l = (_e: unknown, p: { text: string; requestId: string }) => cb(p.text, p.requestId)
       ipcRenderer.on(IPC.events.chatChunk, l)

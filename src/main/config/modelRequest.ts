@@ -1,3 +1,4 @@
+import { observeReasoning } from '../chat/reasoningStream'
 import type { ResolvedConfig } from '@shared/config'
 import { getModelPreset, validateThinking } from '@shared/modelPresets'
 
@@ -5,10 +6,13 @@ import { getModelPreset, validateThinking } from '@shared/modelPresets'
 // provider-specific settings at the HTTP boundary, leaving its SSE parser intact.
 export function modelRequestBody(cfg: ResolvedConfig, original: Record<string, unknown>): Record<string, unknown> {
   validateThinking(cfg)
-  if (!cfg.thinking || cfg.thinking === 'default') return original
-  const preset = getModelPreset(cfg)
-  if (!preset || preset.thinking === 'none') return original
   const body = { ...original }
+  // AI SDK 4 defaults an omitted temperature to 0. Leave it truly unset on the wire.
+  if (cfg.temperature === undefined) delete body.temperature
+  else body.temperature = cfg.temperature
+  if (!cfg.thinking || cfg.thinking === 'default') return body
+  const preset = getModelPreset(cfg)
+  if (!preset || preset.thinking === 'none') return body
   const enabled = cfg.thinking === 'enabled'
   const effort = cfg.thinkingEffort ?? preset.defaultEffort
   switch (preset.thinking) {
@@ -42,10 +46,10 @@ export function modelRequestBody(cfg: ResolvedConfig, original: Record<string, u
   return body
 }
 
-export function createModelFetch(cfg: ResolvedConfig, fetchImpl: typeof fetch = globalThis.fetch): typeof fetch {
-  return (input, init) => {
+export function createModelFetch(cfg: ResolvedConfig, fetchImpl: typeof fetch = globalThis.fetch, onReasoning?: (text: string) => void): typeof fetch {
+  return async (input, init) => {
     if (typeof init?.body !== 'string') return fetchImpl(input, init)
     const body = modelRequestBody(cfg, JSON.parse(init.body))
-    return fetchImpl(input, { ...init, body: JSON.stringify(body) })
+    return observeReasoning(await fetchImpl(input, { ...init, body: JSON.stringify(body) }), onReasoning)
   }
 }

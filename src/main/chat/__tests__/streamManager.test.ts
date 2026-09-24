@@ -1,3 +1,5 @@
+import { getTaskPrompt } from '../../config/catalog'
+vi.mock('../../config/catalog', () => ({ getTaskPrompt: vi.fn() }))
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebContents } from 'electron'
 
@@ -144,6 +146,18 @@ describe('StreamManager.run', () => {
     const { sender, sent } = mockSender()
     await new StreamManager({ streamTextImpl: impl }).run(sender, { requestId: 'r1', messages: [] })
     expect(sent).toEqual([['chat:error', { message: 'Invalid key: [已隐藏]', requestId: 'r1' }]])
+  })
+
+  it('助手提示词在前，任务提示词在后，保留温度 0 并转发思考', async () => {
+    vi.mocked(getResolvedConfig).mockReturnValue({ providerId: 'custom', baseURL: 'b', modelId: 'api-id', apiKey: 'key', hotkey: '', systemPrompt: '助手提示词', temperature: 0 })
+    vi.mocked(getTaskPrompt).mockReturnValue('任务提示词')
+    vi.mocked(resolveModel).mockImplementation((_cfg, onReasoning) => { onReasoning?.('思考'); return {} as any })
+    const impl = vi.fn().mockReturnValue({ textStream: gen(['回答']) })
+    const { sender, sent } = mockSender()
+    await new StreamManager({ streamTextImpl: impl }).run(sender, { requestId: 'task-test', taskId: 'custom-task', messages: [{ role: 'user', content: '用户原文' }] })
+    expect(getTaskPrompt).toHaveBeenCalledWith('custom-task')
+    expect(impl.mock.calls[0][0]).toMatchObject({ system: '助手提示词\n\n任务提示词', temperature: 0, messages: [{ role: 'user', content: '用户原文' }] })
+    expect(sent.map(([channel]) => channel)).toEqual(['chat:reasoning', 'chat:chunk', 'chat:done'])
   })
 
 })

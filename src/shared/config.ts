@@ -1,3 +1,5 @@
+import type { ProviderConfig, PublicProvider, ApiProtocol } from './providers'
+import type { QuickTask } from './tasks'
 import { MODEL_PRESETS } from './modelPresets'
 import type { ThinkingMode, ThinkingEffort } from './modelPresets'
 export type Theme = 'system' | 'light' | 'dark'
@@ -38,6 +40,8 @@ export const PROVIDERS: ProviderDef[] = [
 ]
 
 export interface ModelConfig {
+  providerConfigId?: string
+  temperature?: number
   id: string
   name: string
   providerId: ProviderId
@@ -60,6 +64,8 @@ export type ModelInput = Omit<ModelConfig, 'id'> & { id?: string; apiKey?: strin
 export type AssistantInput = Omit<AssistantConfig, 'id'> & { id?: string }
 
 export interface StoredConfig {
+  providers?: ProviderConfig[]
+  tasks?: QuickTask[]
   models?: ModelConfig[]
   assistants?: AssistantConfig[]
   activeAssistantId?: string
@@ -79,6 +85,8 @@ export const DEFAULT_CONFIG: StoredConfig = {
 }
 
 export interface PublicConfig {
+  providers?: PublicProvider[]
+  tasks?: QuickTask[]
   models?: PublicModel[]
   assistants?: AssistantConfig[]
   activeAssistantId?: string
@@ -91,6 +99,9 @@ export interface PublicConfig {
 }
 
 export interface ResolvedConfig {
+  protocol?: ApiProtocol
+  temperature?: number
+  keyOptional?: boolean
   presetId?: string
   thinking?: ThinkingMode
   thinkingEffort?: ThinkingEffort

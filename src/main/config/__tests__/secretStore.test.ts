@@ -3,7 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { getApiKey, setApiKey, setCipherProvider, setSecretPath } from '../secretStore'
+import { getModelApiKey, setModelApiKey, removeModelApiKey, getApiKey, setApiKey, setCipherProvider, setSecretPath } from '../secretStore'
 
 describe('secretStore', () => {
   let dir: string
@@ -44,4 +44,12 @@ describe('secretStore', () => {
     require('fs').writeFileSync(join(dir, 'secrets.bin'), Buffer.from('garbage', 'utf8'))
     expect(getApiKey()).toBeNull()
   })
+  it('删除迁移的服务商凭据时同时清理旧 Key 回退文件', () => {
+    setApiKey('old-key')
+    setModelApiKey('legacy-model', 'new-key')
+    removeModelApiKey('legacy-model')
+    expect(getModelApiKey('legacy-model')).toBeNull()
+    expect(getApiKey()).toBeNull()
+  })
+
 })

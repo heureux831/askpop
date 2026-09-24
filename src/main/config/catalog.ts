@@ -1,3 +1,4 @@
+import { validateThinking } from '@shared/modelPresets'
 import { randomUUID } from 'crypto'
 import { PROVIDERS, type StoredConfig, type ModelConfig, type AssistantConfig, type ModelInput, type AssistantInput } from '@shared/config'
 import { loadConfig, saveConfig } from './store'
@@ -29,7 +30,8 @@ export function saveModel(input: ModelInput): void {
   const oldKey = getModelApiKey(id)
   const key = input.apiKey?.trim()
   if (!key && !oldKey) throw new Error('请输入 API Key')
-  const model: ModelConfig = { id, name: input.name.trim(), providerId: provider.id, baseURL, modelId: input.modelId.trim() }
+  const model: ModelConfig = { id, name: input.name.trim(), providerId: provider.id, baseURL, modelId: input.modelId.trim(), presetId: input.presetId, thinking: input.thinking, thinkingEffort: input.thinkingEffort, thinkingBudget: input.thinkingBudget }
+  validateThinking(model)
   if (key) setModelApiKey(id, key)
   try {
     saveConfig({ ...cfg, models: existing ? cfg.models.map((m) => m.id === id ? model : m) : [...cfg.models, model] })

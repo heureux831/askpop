@@ -21,11 +21,11 @@ describe('PROVIDERS', () => {
     }
   })
 
-  it('deepseek 走 OpenAI 兼容协议，提供 deepseek-chat / deepseek-reasoner', () => {
+  it('deepseek 走 OpenAI 兼容协议，提供当前 Flash / Pro 预设及旧别名', () => {
     const deepseek = PROVIDERS.find((p) => p.id === 'deepseek')!
     expect(deepseek.defaultBaseURL).toBe('https://api.deepseek.com/v1')
-    expect(deepseek.models).toContain('deepseek-chat')
-    expect(deepseek.models).toContain('deepseek-reasoner')
+    expect(deepseek.models).toContain('deepseek-flash')
+    expect(deepseek.models).toContain('deepseek-v4-pro')
   })
 })
 

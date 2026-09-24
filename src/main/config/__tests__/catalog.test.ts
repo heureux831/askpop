@@ -64,4 +64,21 @@ describe('模型和助手配置', () => {
     expect(() => selectAssistant('missing')).toThrow('不存在')
     expect(() => getResolvedConfig('missing')).toThrow('创建并选择')
   })
+  it('保存和读取模型预设、开关及思考强度，保留已有 Key', () => {
+    const model = withCatalog(loadConfig()).models[0]
+    saveModel({ ...model, presetId: 'deepseek/flash', modelId: 'deepseek-v4-flash', thinking: 'disabled', apiKey: '' })
+    expect(getResolvedConfig()).toMatchObject({ presetId: 'deepseek/flash', thinking: 'disabled', apiKey: 'legacy-secret' })
+    saveModel({ ...getPublicConfig().models![0], thinking: 'enabled', thinkingEffort: 'low' })
+    expect(getResolvedConfig()).toMatchObject({ thinking: 'enabled', thinkingEffort: 'low' })
+    saveModel({ ...getPublicConfig().models![0], thinking: 'default', thinkingEffort: undefined })
+    expect(getResolvedConfig().thinking).toBe('default')
+    expect(getResolvedConfig().thinkingEffort).toBeUndefined()
+  })
+  it('错误思考配置不会覆盖已保存的 Key 或配置', () => {
+    const model = withCatalog(loadConfig()).models[0]
+    expect(() => saveModel({ ...model, thinking: 'enabled', apiKey: 'should-not-save' })).toThrow('预设')
+    expect(getResolvedConfig().apiKey).toBe('legacy-secret')
+    expect(getPublicConfig().models![0].thinking).toBeUndefined()
+  })
+
 })

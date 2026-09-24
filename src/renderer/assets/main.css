@@ -165,3 +165,17 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 /* Explicit pointer capture also supports the frameless, non-activating macOS panel. */
 .quick-titlebar { -webkit-app-region: no-drag; touch-action: none; }
 .quick-titlebar:active { cursor: grabbing; }
+
+.thinking-settings { margin: 0 0 24px; padding: 16px; background: var(--subtle); border: 1px solid hsl(var(--border)); border-radius: 9px; }
+.thinking-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.thinking-heading strong { font-size: 12px; font-weight: 600; }
+.thinking-heading p { color: var(--secondary); font-size: 11px; line-height: 1.7; margin-top: 6px; }
+.thinking-switch { width: 36px; height: 21px; flex: none; padding: 2px; background: hsl(var(--input)); border: none; border-radius: 12px; display: flex; align-items: center; }
+.thinking-switch span { display: block; width: 17px; height: 17px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px #0002; transition: transform .15s; }
+.thinking-switch[aria-checked=true] { background: var(--blue); }
+.thinking-switch[aria-checked=true] span { transform: translateX(15px); }
+.thinking-switch:disabled { cursor: not-allowed; opacity: .4; }
+.thinking-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; color: var(--secondary); font-size: 10px; }
+.thinking-reset { color: var(--blue); background: none; border: none; font-size: 10px; white-space: nowrap; }
+.preset-caption { color: var(--secondary); font-size: 10px; margin-top: 7px; }
+.thinking-settings .form-field { margin: 16px 0 0; }

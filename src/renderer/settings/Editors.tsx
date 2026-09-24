@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Check, ChevronDown, KeyRound, Monitor, Moon, Sun, Trash2 } from 'lucide-react'
 import { PROVIDERS, type AssistantConfig, type AssistantInput, type ModelInput, type PublicModel, type PublicConfig, type Theme } from '@shared/config'
+import { MODEL_PRESETS, getModelPreset, thinkingEnabled, type ThinkingEffort } from '@shared/modelPresets'
 import AssistantAvatar from '../shared/AssistantAvatar'
 import { formatAccelerator } from './accelerator'
 
@@ -13,10 +14,16 @@ function Feedback({ error, saved }: { error: string; saved: boolean }) {
 interface BaseProps { onDirty(): void; onSaved(config: PublicConfig, id?: string): void; onDelete?(): void }
 
 export function ModelEditor({ model, ...props }: BaseProps & { model?: PublicModel }) {
-  const [form, setForm] = useState<ModelInput>(model ? { id: model.id, name: model.name, providerId: model.providerId, modelId: model.modelId, baseURL: model.baseURL, apiKey: '' } : { name: '', providerId: 'openai', modelId: 'gpt-4o', baseURL: 'https://api.openai.com/v1', apiKey: '' })
+  const [form, setForm] = useState<ModelInput>(model ? { ...model, apiKey: '' } : { name: '', providerId: 'openai', modelId: 'gpt-4o', baseURL: 'https://api.openai.com/v1', apiKey: '' })
   const [error, setError] = useState(''), [saved, setSaved] = useState(false), [saving, setSaving] = useState(false)
   const update = (patch: Partial<ModelInput>) => { setForm((v) => ({ ...v, ...patch })); setSaved(false); props.onDirty() }
   const provider = PROVIDERS.find((p) => p.id === form.providerId)!
+  const preset = getModelPreset(form)
+  const enabled = thinkingEnabled(form, preset)
+  const inherits = !form.thinking || form.thinking === 'default'
+  const resetThinking = { thinking: 'default' as const, thinkingEffort: undefined, thinkingBudget: undefined }
+  const presets = MODEL_PRESETS.filter((p) => form.providerId === 'custom' || p.providerId === form.providerId)
+  const effortLabels: Record<ThinkingEffort, string> = { low: '低 · 更快响应', medium: '中 · 平衡', high: '高 · 深入分析', xhigh: '极高', max: '最高' }
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setError(''); setSaving(true)
     try {
@@ -30,9 +37,20 @@ export function ModelEditor({ model, ...props }: BaseProps & { model?: PublicMod
     <div className="form-scroll">
       <Field label="配置名称" hint="给这个连接起一个容易辨认的名字。"><input aria-label="配置名称" autoFocus value={form.name} onChange={(e) => update({ name: e.target.value })} placeholder="例如：DeepSeek 日常" maxLength={80} required /></Field>
       <div className="form-divider" />
-      <Field label="供应商"><div className="select-wrap"><select aria-label="供应商" value={form.providerId} onChange={(e) => { const provider = PROVIDERS.find((p) => p.id === e.target.value)!; update({ providerId: provider.id, modelId: provider.defaultModel, baseURL: provider.defaultBaseURL, apiKey: '' }) }}>{PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select><ChevronDown size={14} /></div></Field>
-      <Field label="模型 ID" hint="填写服务商提供的准确模型名称，也可选择预设。"><input aria-label="模型 ID" value={form.modelId} onChange={(e) => update({ modelId: e.target.value })} list="model-presets" placeholder="例如：deepseek-chat" className="mono-input" required /><datalist id="model-presets">{provider.models.map((id) => <option key={id} value={id} />)}</datalist></Field>
-      <Field label="API 地址" hint="支持官方接口和兼容接口，通常以 /v1 结尾。"><input aria-label="API 地址" type="url" value={form.baseURL} onChange={(e) => update({ baseURL: e.target.value })} placeholder="https://api.example.com/v1" className="mono-input" required /></Field>
+      <Field label="供应商"><div className="select-wrap"><select aria-label="供应商" value={form.providerId} onChange={(e) => { const provider = PROVIDERS.find((p) => p.id === e.target.value)!; update({ providerId: provider.id, modelId: provider.defaultModel, baseURL: provider.defaultBaseURL, apiKey: '', presetId: undefined, ...resetThinking }) }}>{PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select><ChevronDown size={14} /></div></Field>
+      <Field label="模型预设" hint={form.providerId === 'custom' ? '为兼容接口选择参数预设；地址保持不变，模型 ID 可改为服务商的别名。' : '预设会填入模型 ID，并提供该型号支持的思考选项。'}><div className="select-wrap"><select aria-label="模型预设" value={form.presetId ?? ''} onChange={(e) => {
+        const chosen = MODEL_PRESETS.find((p) => p.id === e.target.value)
+        update({ presetId: chosen?.id, ...(chosen ? { modelId: chosen.modelId } : {}), ...resetThinking })
+      }}><option value="">按模型 ID 自动识别 / 手动填写</option>{presets.map((p) => <option key={p.id} value={p.id}>{form.providerId === 'custom' ? `${PROVIDERS.find((provider) => provider.id === p.providerId)?.label} · ` : ''}{p.name}</option>)}</select><ChevronDown size={14} /></div></Field>
+      <Field label="模型 ID" hint="填写服务商提供的准确模型名称；预设不代表账户已开通该模型。"><input aria-label="模型 ID" value={form.modelId} onChange={(e) => update({ modelId: e.target.value, ...(!form.presetId ? resetThinking : {}) })} list="model-presets" placeholder="例如：deepseek-flash" className="mono-input" required /><datalist id="model-presets">{[...new Set([...provider.models, ...presets.map((p) => p.modelId)])].map((id) => <option key={id} value={id} />)}</datalist></Field>
+      <section className="thinking-settings" aria-label="模型思考配置">
+        <div className="thinking-heading"><div><strong>深度思考</strong><p>{preset ? preset.description : '尚未识别模型能力。请选择兼容的模型预设以控制思考。'}</p></div><button type="button" role="switch" aria-label="深度思考" aria-checked={enabled} disabled={!preset || preset.thinking === 'none' || !preset.canDisable} className="thinking-switch" onClick={() => update({ thinking: enabled ? 'disabled' : 'enabled' })}><span /></button></div>
+        <div className="thinking-state"><span>{!preset ? '使用服务商默认参数' : preset.thinking === 'none' ? '此型号不支持深度思考' : !preset.canDisable ? '此型号无法关闭推理' : inherits ? `沿用服务商默认${enabled ? '（开启）' : '（关闭）'}` : enabled ? '已开启 · 首字等待可能更长' : '已关闭 · 优先快速回答'}</span>{!inherits && <button type="button" className="thinking-reset" onClick={() => update(resetThinking)}>恢复默认</button>}</div>
+        {preset && <div className="preset-caption">参数预设：{preset.name}</div>}
+        {enabled && preset?.efforts && <Field label="思考强度"><div className="select-wrap"><select aria-label="思考强度" value={inherits ? '' : form.thinkingEffort ?? preset.defaultEffort} onChange={(e) => update(e.target.value ? { thinking: 'enabled', thinkingEffort: e.target.value as ThinkingEffort } : resetThinking)}><option value="">服务商默认</option>{preset.efforts.map((effort) => <option key={effort} value={effort}>{effortLabels[effort]}</option>)}</select><ChevronDown size={14} /></div></Field>}
+        {enabled && preset?.thinking === 'anthropic-budget' && <Field label="思考预算" hint="1024～16000 Token。更高预算可能增加等待与费用。"><input aria-label="思考预算" type="number" min={1024} max={16000} step={1} value={form.thinkingBudget ?? preset.defaultBudget} onChange={(e) => update({ thinking: 'enabled', thinkingBudget: Number(e.target.value) })} required /></Field>}
+      </section>
+      <Field label="API 地址" hint="支持官方接口和兼容接口，通常以 /v1 结尾。"><input aria-label="API 地址" type="url" value={form.baseURL} onChange={(e) => update({ baseURL: e.target.value, ...(!form.presetId && form.providerId === 'custom' ? resetThinking : {}) })} placeholder="https://api.example.com/v1" className="mono-input" required /></Field>
       <Field label="API Key" hint={model?.hasApiKey ? '已安全保存。留空保留当前 Key。' : '仅在本机加密保存，不会显示已保存的 Key。'}><div className="secret-input"><KeyRound size={15} /><input aria-label="API Key" type="password" autoComplete="new-password" value={form.apiKey} onChange={(e) => update({ apiKey: e.target.value })} placeholder={model?.hasApiKey ? '••••••••  已保存' : '输入 API Key'} required={!model?.hasApiKey} /></div></Field>
       <Feedback error={error} saved={saved} />
     </div>

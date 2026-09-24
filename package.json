@@ -1,6 +1,6 @@
 {
   "name": "quick-assistant-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AskPop — a keyboard-first AI assistant for macOS, with custom models and prompts",
   "main": "./out/main/index.js",
   "scripts": {

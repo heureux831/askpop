@@ -1,3 +1,5 @@
+import { MODEL_PRESETS } from './modelPresets'
+import type { ThinkingMode, ThinkingEffort } from './modelPresets'
 export type Theme = 'system' | 'light' | 'dark'
 
 export type ProviderId = 'openai' | 'anthropic' | 'deepseek' | 'custom'
@@ -16,23 +18,23 @@ export const PROVIDERS: ProviderDef[] = [
     label: 'OpenAI',
     defaultBaseURL: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4o',
-    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'o3-mini', 'o1']
+    models: MODEL_PRESETS.filter((p) => p.providerId === 'openai').flatMap((p) => [p.modelId, ...(p.aliases ?? [])])
   },
   {
     id: 'anthropic',
     label: 'Anthropic',
     defaultBaseURL: 'https://api.anthropic.com/v1',
-    defaultModel: 'claude-3-5-sonnet-20241022',
-    models: ['claude-3-5-sonnet-20241022', 'claude-3-7-sonnet-20250219', 'claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5']
+    defaultModel: 'claude-sonnet-4-6',
+    models: MODEL_PRESETS.filter((p) => p.providerId === 'anthropic').flatMap((p) => [p.modelId, ...(p.aliases ?? [])])
   },
   {
     id: 'deepseek',
     label: 'DeepSeek',
     defaultBaseURL: 'https://api.deepseek.com/v1',
-    defaultModel: 'deepseek-chat',
-    models: ['deepseek-chat', 'deepseek-reasoner']
+    defaultModel: 'deepseek-flash',
+    models: MODEL_PRESETS.filter((p) => p.providerId === 'deepseek').flatMap((p) => [p.modelId, ...(p.aliases ?? [])])
   },
-  { id: 'custom', label: 'Custom（OpenAI 兼容）', defaultBaseURL: '', defaultModel: '', models: [] }
+  { id: 'custom', label: 'Custom（兼容接口）', defaultBaseURL: '', defaultModel: '', models: [] }
 ]
 
 export interface ModelConfig {
@@ -41,6 +43,10 @@ export interface ModelConfig {
   providerId: ProviderId
   baseURL: string
   modelId: string
+  presetId?: string
+  thinking?: ThinkingMode
+  thinkingEffort?: ThinkingEffort
+  thinkingBudget?: number
 }
 export interface PublicModel extends ModelConfig { hasApiKey: boolean }
 export interface AssistantConfig {
@@ -85,6 +91,10 @@ export interface PublicConfig {
 }
 
 export interface ResolvedConfig {
+  presetId?: string
+  thinking?: ThinkingMode
+  thinkingEffort?: ThinkingEffort
+  thinkingBudget?: number
   systemPrompt?: string
   assistantId?: string
   providerId: ProviderId

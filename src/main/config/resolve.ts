@@ -1,3 +1,5 @@
+import { getModelPreset } from '@shared/modelPresets'
+import { createModelFetch } from './modelRequest'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { LanguageModel } from 'ai'
@@ -17,7 +19,8 @@ export function getResolvedConfig(assistantId?: string): ResolvedConfig {
     providerId: model.providerId, baseURL: model.baseURL || provider.defaultBaseURL,
     modelId: model.modelId || provider.defaultModel, apiKey: getModelApiKey(model.id) ?? '',
     theme: stored.theme ?? 'system', hotkey: stored.hotkey,
-    assistantId: assistant.id, systemPrompt: assistant.systemPrompt
+    assistantId: assistant.id, systemPrompt: assistant.systemPrompt,
+    presetId: model.presetId, thinking: model.thinking, thinkingEffort: model.thinkingEffort, thinkingBudget: model.thinkingBudget
   }
 }
 
@@ -34,6 +37,7 @@ export function getPublicConfig(): PublicConfig {
 }
 
 export function resolveModel(cfg: ResolvedConfig): LanguageModel {
-  if (cfg.providerId === 'anthropic') return createAnthropic({ apiKey: cfg.apiKey, baseURL: cfg.baseURL })(cfg.modelId)
-  return createOpenAI({ baseURL: cfg.baseURL, apiKey: cfg.apiKey })(cfg.modelId)
+  const fetch = createModelFetch(cfg)
+  if (cfg.providerId === 'anthropic' || getModelPreset(cfg)?.providerId === 'anthropic') return createAnthropic({ apiKey: cfg.apiKey, baseURL: cfg.baseURL, fetch })(cfg.modelId)
+  return createOpenAI({ baseURL: cfg.baseURL, apiKey: cfg.apiKey, fetch })(cfg.modelId)
 }

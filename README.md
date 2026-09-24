@@ -29,7 +29,7 @@ AskPop 是一个 macOS 桌面 AI 快捷助手。按下快捷键，就能提问�
 
 ## 安装
 
-1. 在 [Releases](https://github.com/heureux831/askpop/releases/latest) 下载 `AskPop-0.2.0-arm64.dmg`。
+1. 在 [Releases](https://github.com/heureux831/askpop/releases/latest) 下载适合 Apple Silicon 的 `AskPop-版本号-arm64.dmg`。
 2. 打开 DMG，将 `AskPop.app` 拖入 `Applications`。
 3. 启动应用，配置模型和助手，按 `⌘⇧Space` 唤起。
 
@@ -51,7 +51,15 @@ AskPop 是一个 macOS 桌面 AI 快捷助手。按下快捷键，就能提问�
 | API 地址 | 官方或兼容接口地址，通常以 `/v1` 结尾 |
 | API Key | 服务商提供的密钥；编辑已有配置时留空保留原 Key |
 
-模型预设仅用于辅助填写，实际可用模型及权限以你的服务商账户为准。
+模型预设记录模型 ID、接口兼容方式与支持的思考参数。目前包含 OpenAI、Anthropic、DeepSeek 共 14 个常用型号；实际可用模型及权限以你的服务商账户为准。
+
+**深度思考**开关位于模型设置中。关闭时优先快速回答；开启后可按模型能力选择思考强度（OpenAI、DeepSeek、Claude 4.6），或设置思考 Token 预算（Claude 4.5）。部分推理模型无法完全关闭，普通模型或未知模型不会显示可操作的开关。
+
+旧配置默认沿用服务商行为，不会因升级自动关闭思考。点击开关即可覆盖默认值，也可以「恢复默认」。DeepSeek 官方地址即使配置为 Custom，也能识别 `deepseek-v4-flash` 别名。
+
+自定义代理可选择兼容的参数预设，再填写实际模型别名；选择预设不会更改自定义 API 地址。未知接口不猜测思考参数，须由你选择兼容预设。预设是离线目录，当前不自动同步模型列表。
+
+设计参考 [Pi 的模型目录与能力配置](https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/models.md)和 [OpenCode 的模型选项与 variants](https://opencode.ai/docs/models/)。
 
 ### 2. 创建助手
 
@@ -116,7 +124,7 @@ macOS arm64 构建产物位于：
 
 ```text
 dist/mac-arm64/AskPop.app
-dist/AskPop-0.2.0-arm64.dmg
+dist/AskPop-0.3.0-arm64.dmg
 ```
 
 ## 项目结构

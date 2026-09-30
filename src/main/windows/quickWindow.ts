@@ -111,6 +111,7 @@ export function getQuickWindow(): BrowserWindow | null {
 export function showQuickAssistant(): void {
   const w = getQuickWindow()
   if (!w) return
+  if (process.platform === 'darwin' && app.isHidden()) app.show()
   if (w.isMinimized()) w.restore()
   const bounds = w.getBounds()
   const cursor = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
@@ -128,17 +129,11 @@ export function hideQuickAssistant(): void {
   endQuickDrag()
   const w = getQuickWindow()
   w?.hide()
-  const anyOtherVisible = BrowserWindow.getAllWindows().some(
-    (win) => win !== w && !win.isDestroyed() && win.isVisible()
-  )
-  if (!anyOtherVisible) {
-    app.hide()
-  }
 }
 
 export function toggleQuickAssistant(): void {
   const w = getQuickWindow()
-  if (w?.isVisible()) hideQuickAssistant()
+  if (w?.isVisible() && w.isFocused()) hideQuickAssistant()
   else showQuickAssistant()
 }
 

@@ -106,9 +106,11 @@ AskPop 是一个 macOS 桌面 AI 快捷助手。按下快捷键，就能提问�
 ## 数据与隐私
 
 - API 请求由本机直接发送到你配置的服务商；服务商可能按自己的政策记录请求并收取费用。
-- 模型、助手、提示词及通用设置保存在本机。API Key 使用 Electron `safeStorage` 加密保存，不回传到设置页面。
+- 模型、助手、提示词及通用设置保存在本机。API Key 单独保存在本地 SQLite 数据库 `secrets.sqlite`，不回传到设置页面，保存新 Key 不依赖系统钥匙串。
+- SQLite 中的 API Key 不额外加密；数据库文件权限为 `0600`（仅文件所有者可读写）。备份应用数据目录会包含 Key，请妥善保管。
 - 为兼容旧版，应用沿用 `~/Library/Application Support/quick-assistant-app/` 配置目录及内部应用标识。
-- 首次写入多模型配置时备份为 `config.json.v1.bak`；首次写入服务商结构时备份为 `config.json.v3.bak`。旧模型的名称、助手引用和加密 Key 保留，不自动合并不同账号。
+- 首次写入多模型配置时备份为 `config.json.v1.bak`；首次写入服务商结构时备份为 `config.json.v3.bak`。旧模型的名称、助手引用保留，不自动合并不同账号。
+- 读取旧版 `secrets.bin` / `model-secrets/*.bin` 时，如果系统可解密，会自动迁移到 SQLite，并保留旧文件。旧 Key 无法解密时可重新填写；之后读取新 Key 不再依赖钥匙串。删除凭据会清理对应旧文件，并阻止旧备份重新导入。
 - 当前聊天记录只保留在内存中，未提供持久化聊天历史。
 
 ## 本地开发
@@ -116,6 +118,8 @@ AskPop 是一个 macOS 桌面 AI 快捷助手。按下快捷键，就能提问�
 技术栈：Electron 33、React 18、TypeScript、Vite、Tailwind CSS、AI SDK。
 
 本机验证环境为 Node.js 26、pnpm 10 和 macOS Apple Silicon。
+
+安装依赖时会为 Electron 重建 SQLite 原生模块；单元测试也使用 Electron 的 Node 运行时，确保测试与应用使用相同的原生模块 ABI。
 
 ```sh
 git clone https://github.com/heureux831/askpop.git
@@ -144,7 +148,7 @@ dist/AskPop-0.4.0-arm64.dmg
 ## 项目结构
 
 ```text
-src/main/       窗口、全局快捷键、配置与加密、聊天请求、IPC
+src/main/       窗口、全局快捷键、配置与凭据存储、聊天请求、IPC
 src/preload/    主进程与界面之间的桥接 API
 src/renderer/   快捷窗口、设置工作台、共享组件和样式
 src/shared/     配置类型与 IPC 定义

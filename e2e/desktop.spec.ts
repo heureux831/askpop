@@ -1,6 +1,6 @@
 import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test'
 import { createServer } from 'node:http'
-import { mkdtemp, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, stat, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -47,7 +47,14 @@ test('桌面核心流程、翻译、错误反馈、主题与配置持久化', as
   const dir = await mkdtemp(join(tmpdir(), 'quick-assistant-e2e-'))
   const launcher = join(dir, 'launch.cjs')
   await writeFile(join(dir, 'config.json'), JSON.stringify({ hotkey: 'Command+Control+Alt+J' }))
-  await writeFile(launcher, `const { app } = require('electron'); app.setPath('userData', ${JSON.stringify(dir)}); require(${JSON.stringify(resolve('out/main/index.js'))});`)
+  await writeFile(launcher, `
+    const { app, safeStorage } = require('electron');
+    app.setPath('userData', ${JSON.stringify(dir)});
+    // Reproduce the original failure: system encryption is unavailable for this entire run.
+    safeStorage.isEncryptionAvailable = () => false;
+    safeStorage.encryptString = () => { throw new Error('Encryption is not available.'); };
+    require(${JSON.stringify(resolve('out/main/index.js'))});
+  `)
   let app: ElectronApplication | undefined
   const launch = () => electron.launch({ args: [launcher], env: { ...process.env, ELECTRON_RUN_AS_NODE: '' } })
   try {
@@ -64,6 +71,8 @@ test('桌面核心流程、翻译、错误反馈、主题与配置持久化', as
     await settingsPage.getByRole('button', { name: '保存服务商', exact: true }).click()
     await expect(settingsPage.getByRole('status')).toContainText('已保存')
     await expect(settingsPage.getByLabel('API Key', { exact: true })).toHaveValue('')
+    expect((await readFile(join(dir, 'secrets.sqlite'))).subarray(0, 16).toString()).toBe('SQLite format 3\0')
+    expect((await stat(join(dir, 'secrets.sqlite'))).mode & 0o777).toBe(0o600)
     await settingsPage.getByRole('button', { name: '编辑模型 默认模型', exact: true }).click()
     await settingsPage.getByLabel('API 模型 ID', { exact: true }).fill('test-model')
     await settingsPage.getByLabel('显示名称', { exact: true }).fill('默认模型')
@@ -253,11 +262,12 @@ test('桌面核心流程、翻译、错误反馈、主题与配置持久化', as
     })
     await app.close()
     app = await launch()
+    // Wait for app.whenReady() and the window to load before checking restored state.
+    const restoredQuick = await app.firstWindow()
+    await restoredQuick.waitForURL('**/quick.html')
     expect(await app.evaluate(({ nativeTheme }) => nativeTheme.themeSource)).toBe('light')
     expect(await app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Command+Control+Alt+K'))).toBe(true)
     expect(app.windows().some((p) => p.url().includes('settings.html'))).toBe(false)
-    const restoredQuick = await app.firstWindow()
-    await restoredQuick.waitForURL('**/quick.html')
     const restored = await restoredQuick.evaluate(() => (window as any).api.config.get())
     expect(restored.models).toHaveLength(2)
     expect(restored.models.find((m: any) => m.name === '备用模型')).toMatchObject({ modelId: 'second-model', temperature: 0.4 })

@@ -1,34 +1,54 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, renameSync } from 'fs'
-import { join, dirname } from 'path'
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync } from 'fs'
+import { dirname, join } from 'path'
+import Database from 'better-sqlite3'
 import { app, safeStorage } from 'electron'
 
-interface CipherProvider {
-  encrypt(plain: string): string
-  decrypt(data: Buffer): string
+const LEGACY_SLOT = '__legacy__'
+let secretPath = ''
+let database: Database.Database | null = null
+
+export function closeSecretStore(): void {
+  database?.close()
+  database = null
 }
 
-let secretPath = ''
-let cipher: CipherProvider | null = null
-
+/** Override the SQLite path for isolated tests. */
 export function setSecretPath(path: string): void {
+  closeSecretStore()
   secretPath = path
 }
 
-export function setCipherProvider(p: CipherProvider | null): void {
-  cipher = p
-}
-
 function getSecretFilePath(): string {
-  if (secretPath) return secretPath
-  return join(app.getPath('userData'), 'secrets.bin')
+  return secretPath || join(app.getPath('userData'), 'secrets.sqlite')
 }
 
-function getCipher(): CipherProvider {
-  if (cipher) return cipher
-  return {
-    encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
-    decrypt: (data) => safeStorage.decryptString(Buffer.from(data.toString('utf8'), 'base64'))
+function getDatabase(): Database.Database {
+  if (database) return database
+  const path = getSecretFilePath()
+  mkdirSync(dirname(path), { recursive: true })
+  // Set permissions before SQLite opens the file, including on an existing database.
+  closeSync(openSync(path, 'a', 0o600))
+  chmodSync(path, 0o600)
+  const db = new Database(path)
+  try {
+    db.pragma('journal_mode = DELETE')
+    db.pragma('secure_delete = ON')
+    db.exec('CREATE TABLE IF NOT EXISTS api_keys (slot TEXT PRIMARY KEY NOT NULL, value TEXT)')
+    database = db
+    return db
+  } catch (error) {
+    db.close()
+    throw error
   }
+}
+
+function writeSlot(slot: string, value: string | null): void {
+  // A NULL row marks an intentional removal and prevents old encrypted files resurfacing.
+  getDatabase().prepare('INSERT INTO api_keys (slot, value) VALUES (?, ?) ON CONFLICT(slot) DO UPDATE SET value = excluded.value').run(slot, value)
+}
+
+function legacySecretPath(): string {
+  return join(dirname(getSecretFilePath()), 'secrets.bin')
 }
 
 function modelSecretPath(modelId: string): string {
@@ -36,48 +56,49 @@ function modelSecretPath(modelId: string): string {
   return join(dirname(getSecretFilePath()), 'model-secrets', `${modelId}.bin`)
 }
 
+function readSlot(slot: string, legacyPath: string): string | null | undefined {
+  const row = getDatabase().prepare('SELECT value FROM api_keys WHERE slot = ?').get(slot) as { value: string | null } | undefined
+  if (row) return row.value
+  if (!existsSync(legacyPath)) return undefined
+
+  // Only old ciphertext needs Keychain access. A failed migration never blocks a new Key.
+  let plain: string
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null
+    plain = safeStorage.decryptString(Buffer.from(readFileSync(legacyPath, 'utf8'), 'base64'))
+  } catch {
+    return null
+  }
+  if (!plain) return null
+  writeSlot(slot, plain)
+  return plain
+}
+
 export function setModelApiKey(modelId: string, plain: string): void {
-  const path = modelSecretPath(modelId)
-  mkdirSync(dirname(path), { recursive: true })
-  const encrypted = getCipher().encrypt(plain)
-  writeFileSync(`${path}.tmp`, encrypted, { mode: 0o600 })
-  renameSync(`${path}.tmp`, path)
+  modelSecretPath(modelId)
+  writeSlot(modelId, plain)
 }
 
 export function getModelApiKey(modelId: string): string | null {
-  const path = modelSecretPath(modelId)
-  if (!existsSync(path)) return modelId === 'legacy-model' ? getApiKey() : null
-  try { return getCipher().decrypt(readFileSync(path)) } catch { return null }
+  const value = readSlot(modelId, modelSecretPath(modelId))
+  return value === undefined && modelId === 'legacy-model' ? getApiKey() : value ?? null
 }
 
 export function removeModelApiKey(modelId: string): void {
   const path = modelSecretPath(modelId)
+  getDatabase().transaction(() => {
+    writeSlot(modelId, null)
+    if (modelId === 'legacy-model') writeSlot(LEGACY_SLOT, null)
+  })()
   if (existsSync(path)) unlinkSync(path)
-  if (modelId === 'legacy-model' && existsSync(getSecretFilePath())) unlinkSync(getSecretFilePath())
+  if (modelId === 'legacy-model' && existsSync(legacySecretPath())) unlinkSync(legacySecretPath())
 }
 
 export function setApiKey(plain: string): void {
-  if (!plain) {
-    setSecretFilePathAndClear()
-    return
-  }
-  const encrypted = getCipher().encrypt(plain)
-  writeFileSync(getSecretFilePath(), Buffer.from(encrypted, 'utf8'))
+  writeSlot(LEGACY_SLOT, plain || null)
+  if (!plain && existsSync(legacySecretPath())) unlinkSync(legacySecretPath())
 }
 
 export function getApiKey(): string | null {
-  if (!existsSync(getSecretFilePath())) return null
-  try {
-    return getCipher().decrypt(readFileSync(getSecretFilePath()))
-  } catch {
-    return null
-  }
-}
-
-function setSecretFilePathAndClear(): void {
-  try {
-    writeFileSync(getSecretFilePath(), Buffer.alloc(0))
-  } catch {
-    // 忽略清除失败
-  }
+  return readSlot(LEGACY_SLOT, legacySecretPath()) ?? null
 }

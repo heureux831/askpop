@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { DEFAULT_CONFIG } from '@shared/config'
 import { getPublicConfig, getResolvedConfig, resolveModel } from '../resolve'
-import { setApiKey, setCipherProvider, setSecretPath } from '../secretStore'
+import { setApiKey, setSecretPath } from '../secretStore'
 import { setConfigPath, saveConfig } from '../store'
 
 describe('getResolvedConfig', () => {
@@ -14,14 +14,10 @@ describe('getResolvedConfig', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'qa-resolve-'))
     setConfigPath(join(dir, 'config.json'))
-    setSecretPath(join(dir, 'secrets.bin'))
-    setCipherProvider({
-      encrypt: (s) => Buffer.from(s).toString('base64'),
-      decrypt: (b) => Buffer.from(b.toString(), 'base64').toString()
-    })
+    setSecretPath(join(dir, 'secrets.sqlite'))
   })
 
-  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+  afterEach(() => { setSecretPath(''); rmSync(dir, { recursive: true, force: true }) })
 
   it('baseURL/modelId 留空时回退到供应商默认值', () => {
     saveConfig({ ...DEFAULT_CONFIG, providerId: 'openai' })

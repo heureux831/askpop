@@ -7,8 +7,9 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "node scripts/run-vitest.cjs run",
+    "test:watch": "node scripts/run-vitest.cjs",
+    "postinstall": "electron-builder install-app-deps",
     "package": "pnpm build && electron-builder --mac --dir && pnpm test:package",
     "dist": "pnpm build && electron-builder --mac dmg && pnpm test:package",
     "test:e2e": "pnpm build && playwright test",
@@ -18,6 +19,7 @@
     "@ai-sdk/anthropic": "^1.0.0",
     "@ai-sdk/openai": "^1.0.0",
     "ai": "^4.0.0",
+    "better-sqlite3": "11.10.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "zod": "^3.25.76"
@@ -26,6 +28,7 @@
     "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.0",
+    "@types/better-sqlite3": "7.6.13",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
@@ -46,6 +49,9 @@
     "vitest": "^2.1.0"
   },
   "pnpm": {
+    "ignoredBuiltDependencies": [
+      "better-sqlite3"
+    ],
     "onlyBuiltDependencies": [
       "electron",
       "esbuild"

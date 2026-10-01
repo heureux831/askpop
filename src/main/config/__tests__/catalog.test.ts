@@ -4,7 +4,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { DEFAULT_CONFIG } from '@shared/config'
 import { saveConfig, loadConfig, setConfigPath } from '../store'
-import { setApiKey, setCipherProvider, setSecretPath, getModelApiKey } from '../secretStore'
+import { setApiKey, setSecretPath, getModelApiKey } from '../secretStore'
 import { saveProvider, deleteProvider, saveTasks, saveModel, deleteModel, saveAssistant, deleteAssistant, selectAssistant, withCatalog } from '../catalog'
 import { getPublicConfig, getResolvedConfig } from '../resolve'
 
@@ -12,12 +12,11 @@ describe('模型和助手配置', () => {
   let dir: string
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'qa-catalog-'))
-    setConfigPath(join(dir, 'config.json')); setSecretPath(join(dir, 'secrets.bin'))
-    setCipherProvider({ encrypt: (s) => Buffer.from(s).toString('base64'), decrypt: (b) => Buffer.from(b.toString(), 'base64').toString() })
+    setConfigPath(join(dir, 'config.json')); setSecretPath(join(dir, 'secrets.sqlite'))
     saveConfig({ ...DEFAULT_CONFIG, providerId: 'custom', baseURL: 'https://example.test/v1', modelId: 'old-model' })
     setApiKey('legacy-secret')
   })
-  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+  afterEach(() => { setSecretPath(''); rmSync(dir, { recursive: true, force: true }) })
   it('旧配置和 Key 保留为默认模型／日常助手，并在首次写入保留旧配置备份', () => {
     const cfg = getPublicConfig()
     expect(cfg.models?.[0]).toMatchObject({ id: 'legacy-model', modelId: 'old-model', hasApiKey: true })
@@ -37,7 +36,7 @@ describe('模型和助手配置', () => {
     expect(getResolvedConfig('default-assistant').apiKey).toBe('legacy-secret')
     expect(JSON.stringify(getPublicConfig())).not.toContain('key-two')
     expect(readFileSync(join(dir, 'config.json'), 'utf8')).not.toContain('key-two')
-    expect(readFileSync(join(dir, 'model-secrets', `${id}.bin`), 'utf8')).not.toContain('key-two')
+    expect(readFileSync(join(dir, 'secrets.sqlite')).subarray(0, 16).toString()).toBe('SQLite format 3\0')
   })
   it('编辑模型时留空 Key 保持原值', () => {
     const model = withCatalog(loadConfig()).models[0]

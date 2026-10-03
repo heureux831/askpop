@@ -1,0 +1,94 @@
+name: macOS CI and release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: Test and package Apple Silicon
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: '.nvmrc'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          run_install: false
+      - name: Validate release tag and runner
+        run: |
+          node -e "if (process.arch !== 'arm64') throw new Error('Expected Apple Silicon runner')"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            node -e "require('./scripts/publish-release.cjs').validateTag(process.env.GITHUB_REF_NAME, require('./package.json').version)"
+          fi
+      - run: pnpm install --frozen-lockfile
+      - name: Verify installed Electron runtime
+        run: |
+          ELECTRON_RUN_AS_NODE=1 node_modules/.bin/electron -e "console.log(process.versions.electron)"
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:e2e
+      - name: Build DMG and check packaged native dependencies
+        run: pnpm dist
+      - name: Prepare download and checksum
+        run: |
+          mkdir release-assets
+          version=$(node -p "require('./package.json').version")
+          cp "dist/AskPop-$version-arm64.dmg" release-assets/
+          cd release-assets
+          shasum -a 256 "AskPop-$version-arm64.dmg" > SHA256SUMS.txt
+          shasum -a 256 -c SHA256SUMS.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: askpop-macos-arm64
+          path: release-assets/
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+      - name: Keep failed test diagnostics briefly
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: macos-test-diagnostics
+          path: test-results/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  release:
+    name: Create draft GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: askpop-macos-arm64
+          path: release-assets
+      - name: Verify downloaded package
+        working-directory: release-assets
+        run: sha256sum -c SHA256SUMS.txt
+      - name: Upload to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-release.cjs

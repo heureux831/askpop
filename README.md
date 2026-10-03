@@ -117,7 +117,7 @@ AskPop 是一个 macOS 桌面 AI 快捷助手。按下快捷键，就能提问�
 
 技术栈：Electron 33、React 18、TypeScript、Vite、Tailwind CSS、AI SDK。
 
-本机验证环境为 Node.js 26、pnpm 10 和 macOS Apple Silicon。
+使用 `.nvmrc` 指定的 Node.js 22、pnpm 10 和 macOS Apple Silicon；CI 使用同一 Node 主版本。旧版 Electron 的安装解压依赖在 Node 26 上存在兼容问题，干净安装不建议使用 Node 26。
 
 安装依赖时会为 Electron 重建 SQLite 原生模块；单元测试也使用 Electron 的 Node 运行时，确保测试与应用使用相同的原生模块 ABI。
 

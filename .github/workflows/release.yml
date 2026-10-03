@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: '26'
+          node-version-file: '.nvmrc'
           package-manager-cache: false
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
         with:
@@ -37,11 +37,8 @@ jobs:
             node -e "require('./scripts/publish-release.cjs').validateTag(process.env.GITHUB_REF_NAME, require('./package.json').version)"
           fi
       - run: pnpm install --frozen-lockfile
-      - name: Ensure Electron runtime after native dependency setup
+      - name: Verify installed Electron runtime
         run: |
-          unset ELECTRON_SKIP_BINARY_DOWNLOAD ELECTRON_OVERRIDE_DIST_PATH
-          node node_modules/electron/install.js
-          node -e "const fs = require('node:fs'); const path = require('node:path'); const root = path.dirname(require.resolve('electron/package.json')); console.log('Electron files:', fs.readdirSync(root)); console.log('Runtime files:', fs.existsSync(path.join(root, 'dist')) ? fs.readdirSync(path.join(root, 'dist')) : 'missing')"
           ELECTRON_RUN_AS_NODE=1 node_modules/.bin/electron -e "console.log(process.versions.electron)"
       - run: pnpm typecheck
       - run: pnpm test

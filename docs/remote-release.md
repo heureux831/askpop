@@ -8,7 +8,7 @@ PR、推送到 `main`、推送 `v*` 标签都会运行 `.github/workflows/releas
 
 每次依次执行：
 
-1. 按锁文件安装依赖，为 Electron 重建 SQLite 原生模块。
+1. 使用 `.nvmrc` 中的 Node 22，按锁文件安装依赖，为 Electron 重建 SQLite 原生模块，并验证 Electron 可以启动。
 2. TypeScript 检查、单元测试、发布脚本测试。
 3. 真实 Electron 端到端测试，使用临时配置及本地模拟 API。
 4. 构建 Apple Silicon DMG，启动包内 Electron 验证运行依赖及 SQLite 读写。
@@ -48,5 +48,7 @@ PR、推送到 `main`、推送 `v*` 标签都会运行 `.github/workflows/releas
 沿用目前的 Apple Silicon 支持范围及未做 Developer ID 签名、Apple 公证的状态；macOS 首次打开仍可能拦截。云端构建本身不会改变这一限制，校验文件也不能替代 Apple 签名。
 
 以后接入签名公证时，需要先准备 Apple Developer 身份及相应凭据，再通过 GitHub Secrets 配置，仅向受信任的发布任务提供；不要将凭据提交到仓库。自动更新器需要另行实现和验证，本次只迁移测试、打包与 Release 上传流程。
+
+构建固定到 Node 22，以避开旧 Electron 安装解压依赖在 Node 26 下静默退出的问题；见 [Electron 上游记录](https://github.com/electron/electron/issues/51619)。
 
 参考：[GitHub 托管运行器](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)、[CI 制品保留期](https://github.com/actions/upload-artifact#retention-period)。

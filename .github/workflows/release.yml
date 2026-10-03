@@ -39,7 +39,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Ensure Electron runtime after native dependency setup
         run: |
+          unset ELECTRON_SKIP_BINARY_DOWNLOAD ELECTRON_OVERRIDE_DIST_PATH
           node node_modules/electron/install.js
+          node -e "const fs = require('node:fs'); const path = require('node:path'); const root = path.dirname(require.resolve('electron/package.json')); console.log('Electron files:', fs.readdirSync(root)); console.log('Runtime files:', fs.existsSync(path.join(root, 'dist')) ? fs.readdirSync(path.join(root, 'dist')) : 'missing')"
           ELECTRON_RUN_AS_NODE=1 node_modules/.bin/electron -e "console.log(process.versions.electron)"
       - run: pnpm typecheck
       - run: pnpm test

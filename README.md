@@ -132,13 +132,15 @@ pnpm dev
 pnpm typecheck     # TypeScript 检查
 pnpm test          # 单元测试
 pnpm test:e2e      # 构建并运行真实 Electron 端到端验收
-pnpm package       # 构建 .app，并检查包内运行依赖
-pnpm dist          # 构建 .app + .dmg，并检查包内运行依赖
+pnpm package      # 可选：仅排查打包问题时，在本机生成 .app
+pnpm dist         # 可选：在本机生成 Apple Silicon DMG；正常发布使用云端流程
 ```
 
 端到端测试使用临时配置与本地模拟 SSE 服务，不需要真实 API Key、不调用付费 API。测试会恢复剪贴板并清除临时配置。测试覆盖服务商共享 Key、API ID 与显示名称分离、温度、分组选模、任务排序与提示词拼接、思考区域高度和滚动稳定性、重启恢复、主题及快捷键冲突。
 
-macOS arm64 构建产物位于：
+正常发布无需在本机执行 `package` 或 `dist`。GitHub Actions 会运行类型检查、单元测试、真实 Electron 端到端测试、DMG 构建及包内 SQLite 检查。推送与 `package.json` 版本一致的 `vX.Y.Z` 标签后，自动创建包含 DMG 和 SHA-256 校验文件的草稿 Release；检查后再公开发布。操作步骤见[云端构建与发布](docs/remote-release.md)。
+
+仅手动本机构建时，macOS arm64 产物位于：
 
 ```text
 dist/mac-arm64/AskPop.app

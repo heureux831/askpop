@@ -37,6 +37,10 @@ jobs:
             node -e "require('./scripts/publish-release.cjs').validateTag(process.env.GITHUB_REF_NAME, require('./package.json').version)"
           fi
       - run: pnpm install --frozen-lockfile
+      - name: Ensure Electron runtime after native dependency setup
+        run: |
+          node node_modules/electron/install.js
+          ELECTRON_RUN_AS_NODE=1 node_modules/.bin/electron -e "console.log(process.versions.electron)"
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:e2e
